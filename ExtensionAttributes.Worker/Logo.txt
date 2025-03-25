@@ -1,0 +1,35 @@
+﻿
+                                                             
+                                                             
+RRRRRRRRRRRRRRRRR           GGGGGGGGGGGGGPPPPPPPPPPPPPPPPP   
+R::::::::::::::::R       GGG::::::::::::GP::::::::::::::::P  
+R::::::RRRRRR:::::R    GG:::::::::::::::GP::::::PPPPPP:::::P 
+RR:::::R     R:::::R  G:::::GGGGGGGG::::GPP:::::P     P:::::P
+  R::::R     R:::::R G:::::G       GGGGGG  P::::P     P:::::P
+  R::::R     R:::::RG:::::G                P::::P     P:::::P
+  R::::RRRRRR:::::R G:::::G                P::::PPPPPP:::::P 
+  R:::::::::::::RR  G:::::G    GGGGGGGGGG  P:::::::::::::PP  
+  R::::RRRRRR:::::R G:::::G    G::::::::G  P::::PPPPPPPPP    
+  R::::R     R:::::RG:::::G    GGGGG::::G  P::::P            
+  R::::R     R:::::RG:::::G        G::::G  P::::P            
+  R::::R     R:::::R G:::::G       G::::G  P::::P            
+RR:::::R     R:::::R  G:::::GGGGGGGG::::GPP::::::PP          
+R::::::R     R:::::R   GG:::::::::::::::GP::::::::P          
+R::::::R     R:::::R     GGG::::::GGG:::GP::::::::P          
+RRRRRRRR     RRRRRRR        GGGGGG   GGGGPPPPPPPPPP          
+                                                             
+                                                             
+                                                             
+                                                             
+                                                             
+                                                             
+                                                             
+
+                    _                                   _          
+                   | |                                 (_)         
+__      _____  _ __| | _____ _ __   ___  ___ _ ____   ___  ___ ___ 
+\ \ /\ / / _ \| '__| |/ / _ \ '__| / __|/ _ \ '__\ \ / / |/ __/ _ \
+ \ V  V / (_) | |  |   <  __/ |    \__ \  __/ |   \ V /| | (_|  __/
+  \_/\_/ \___/|_|  |_|\_\___|_|    |___/\___|_|    \_/ |_|\___\___|
+                                                                   
+                                                                   

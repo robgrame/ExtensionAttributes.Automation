@@ -1,0 +1,20 @@
+{
+  "profiles": {
+    "Runas Service": {
+      "commandName": "Project",
+      "commandLineArgs": "-s"
+    },
+    "Runas Command": {
+      "commandName": "Project",
+      "commandLineArgs": "-c"
+    },
+    "Show Help": {
+      "commandName": "Project",
+      "commandLineArgs": "-h"
+    },
+    "No parameter": {
+      "commandName": "Project",
+      "commandLineArgs": ""
+    }
+  }
+}

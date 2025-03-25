@@ -1,0 +1,25 @@
+{
+  "Quartz": {
+    "QuartzScheduler": {
+      "quartz.scheduler.instanceName": "RGP.ExtensionAttributes.Automation.Worker",
+      "quartz.scheduler.instanceId": "AUTO",
+      "quartz.threadPool.type": "Quartz.Simpl.SimpleThreadPool, Quartz",
+      "quartz.threadPool.threadCount": "10",
+      "quartz.threadPool.threadPriority": "Normal",
+      "quartz.jobStore.misfireThreshold": "60000",
+      "quartz.jobStore.type": "Quartz.Simpl.RAMJobStore, Quartz",
+      "quartz.jobStore.clustered": "false"
+    },
+    "QuartzJobs": [
+      {
+        "JobName": "SetComputerExtensionAttributeJob",
+        "JobDescription": "Set computer ExtensionAttribute to the name of parent OU",
+        "JobGroup": "SetComputerExtensionAttributeGroup",
+        "JobType": "RGP.Automation.Worker.Jobs.SetComputerExtensionAttributeJob, RGP.Automation.Worker",
+        "TriggerName": "SetComputerExtensionAttributeTrigger",
+        "TriggerGroup": "SetComputerExtensionAttributeTriggerGroup",
+        "CronExpression": "* 0/5 * ? * * *"
+      }
+    ]
+  }
+}
