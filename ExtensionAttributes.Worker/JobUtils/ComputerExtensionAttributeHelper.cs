@@ -148,9 +148,9 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
                                 _logger.LogTrace("ExtensionAttribute {ExtensionAttribute} updated successfully for Device ID: {DeviceId}", mapping.ExtensionAttribute, entraADDevice.Id);
 
                                 // Add the device to the updated devices collection
-                                _logger.LogDebug("Adding updated device to collection: {ComputerName}", directoryEntry.Name);
+                                _logger.LogDebug("Adding updated device to collection to be exported: {ComputerName}", directoryEntry.Name);
                                 UpdatedDevices.Add(Tuple.Create(entraADDevice, string.Join('-', mapping.ExtensionAttribute, expectedComputerAttributeValue)));
-                                _logger.LogTrace("Updated device added to collection: {ComputerName}", directoryEntry.Name);
+                                _logger.LogTrace("Updated device added to collection to be exported: {ComputerName}", directoryEntry.Name);
                             }
                             else
                             {
@@ -163,7 +163,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
                             _logger.LogDebug("No update needed for ExtensionAttribute {extensionAttribute}. Current value {currentExtensionAttributeValue} match expected value: {ExtensionAttributeValue}", mapping.ExtensionAttribute, extensionAttributeValue, expectedComputerAttributeValue);
                         }
 
-                        _logger.LogDebug("########### ExtensionAttribute {ExtensionAttribute} for Device ID: {DeviceId} completed ###########", mapping.ExtensionAttribute, entraADDevice.Id);
+                        _logger.LogDebug("########### ExtensionAttribute {ExtensionAttribute}|{expectedComputerAttributeValue} for Device ID: {DeviceId} | {DeviceName} completed ###########", mapping.ExtensionAttribute, expectedComputerAttributeValue, entraADDevice.Id, entraADDevice.DisplayName);
                     }
                 }
 
