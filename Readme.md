@@ -538,7 +538,7 @@ Contributions are welcome! Please follow these steps to contribute:
 This project is licensed under the GPL 3.0. See the GPL license details file for more details.
 
 ## Contact :mailbox_with_no_mail:
-For any questions or feedback, you can reach me at [roberto.gramellini@microsoft.com](mailto:roberto.gramellini@microsoft.com)
+For any questions or feedback, you can reach me at [roberto@gramellini.net](mailto:roberto@gramellini.net)
 
 ## Changelog :scroll:
 
@@ -627,7 +627,7 @@ If you encounter any issues or have questions about the service, please open an 
 
   - **Q: How do I get support?**
 
-  - A: If you need support, please open an issue on the GitHub repository or contact me at roberto@gramellini.net
+  - A: If you need support, please open an issue on the GitHub repository or contact me at [roberto@gramellini.net](mailto:roberto@gramellini.net)
 
   
 - ## Feedback :speech_balloon:
