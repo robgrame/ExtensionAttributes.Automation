@@ -221,7 +221,7 @@ This file contains the main configuration settings for the service. You can modi
     - *AttributesToLoad*: An array of attributes to load from Entra AD. Modify this list based on your requirements.
     - *PageSize*: The number of records to retrieve per page when querying Entra AD.
     - *ClientTimeout*: The timeout value for the Entra AD API requests.
-- *ADHelperSettings*: Contains the settings for the AD helper, including:
+    - *ADHelperSettings*: Contains the settings for the AD helper, including:
     - *RootOrganizationaUnitDN*: The distinguished name of the root organizational unit in your AD.
     - *AttributesToLoad*: An array of attributes to load from AD. Modify this list based on your requirements.
     - *PageSize*: The number of records to retrieve per page when querying AD.
@@ -416,8 +416,9 @@ To install the Extension Attributes Automation Worker Service, follow these step
 - Ensure you have the required prerequisites installed on your machine, including .NET Core 9.0 or later and the Entra AD App Registration.
 - You can download either the whole project from GitHub if you want to modify the code or just the binary files if you want to run the service as is.
 
+
+- if you prefer to download binary files follow the instructions in the [Download the Binary Files](#download-the-binary-files) section.
 - If you want to modify the code, follow the instructions in the [Building the Project](#building-the-project) section.
-- if you prefer to download binary file 
 
 ### Download the Binary Files :floppy_disk:
 
@@ -537,7 +538,7 @@ Contributions are welcome! Please follow these steps to contribute:
 This project is licensed under the GPL. See the GPL license details file for more details.
 
 ## Contact :mailbox_with_no_mail:
-For any questions or feedback, you can reach me at roberto@gramellini.net
+For any questions or feedback, you can reach me at [roberto.gramellini@microsoft.com](mailto:roberto.gramellini@microsoft.com)
 
 ## Changelog :scroll:
 
