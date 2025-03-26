@@ -45,7 +45,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
             {
                 
                 _logger.LogDebug("-----------------------------------------------------------------");
-                _logger.LogDebug("--------- Processing Computer name: {ComputerName} --------------", directoryEntry.Name));
+                _logger.LogDebug("--------- Processing Computer name: {ComputerName} --------------", directoryEntry.Name);
                 _logger.LogDebug("_________________________________________________________________");
 
                 var rootOUName = adHelperSettings.RootOrganizationaUnitDN.Split(',')[0];
