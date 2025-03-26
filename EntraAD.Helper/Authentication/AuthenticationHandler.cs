@@ -10,11 +10,11 @@ namespace Azure.Automation.Authentication
     public class AuthenticationHandler
     {
         private readonly EntraADHelperSettings _settings;
-        private readonly ILogger<EntraADHelperSettings> _logger;
+        private readonly ILogger<AuthenticationHandler> _logger;
         private AccessToken? _accessToken;
         private DateTime _tokenExpiration;
 
-        public AuthenticationHandler(IOptions<EntraADHelperSettings> settings, ILogger<EntraADHelperSettings> logger)
+        public AuthenticationHandler(IOptions<EntraADHelperSettings> settings, ILogger<AuthenticationHandler> logger)
         {
             _settings = settings.Value;
             _logger = logger;
@@ -28,7 +28,7 @@ namespace Azure.Automation.Authentication
                 // Check if the access token is cached and not expired within the buffer time
                 if (_accessToken != null && _accessToken.Value.ExpiresOn.UtcDateTime > DateTime.UtcNow.AddMinutes(_settings.TokenExpirationBuffer))
                 {
-                    _logger.LogInformation("Using cached access token.");
+                    _logger.LogTrace("Using cached access token.");
                     return _accessToken.Value;
                 }
 
@@ -39,7 +39,7 @@ namespace Azure.Automation.Authentication
                     throw new Exception("ClientId or TenantId is not set.");
                 }
 
-                _logger.LogInformation("Fetching new access token...");
+                _logger.LogTrace("Fetching new access token...");
 
                 TokenCredential credential;
                 if (_settings.UseClientSecret)
@@ -95,7 +95,7 @@ namespace Azure.Automation.Authentication
 
         private X509Certificate2? FindCertificateByThumbprint(string thumbprint)
         {
-            _logger.LogInformation("Searching for certificate with thumbprint: {Thumbprint}", thumbprint);
+            _logger.LogTrace("Searching for certificate with thumbprint: {Thumbprint}", thumbprint);
 
             using var store = new X509Store(StoreLocation.LocalMachine);
             store.Open(OpenFlags.ReadOnly);
@@ -103,7 +103,7 @@ namespace Azure.Automation.Authentication
 
             if (certificate != null)
             {
-                _logger.LogInformation("Certificate found.");
+                _logger.LogTrace("Certificate found.");
             }
             else
             {

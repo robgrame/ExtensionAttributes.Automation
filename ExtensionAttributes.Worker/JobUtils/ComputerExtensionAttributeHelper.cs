@@ -45,7 +45,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
             {
                 
                 _logger.LogDebug("-----------------------------------------------------------------");
-                _logger.LogDebug("--------- Processing Computer name: {ComputerName} --------------", directoryEntry.Name);
+                _logger.LogInformation("--------- Processing Computer name: {ComputerName} --------------", directoryEntry.Name);
                 _logger.LogDebug("_________________________________________________________________");
 
                 var rootOUName = adHelperSettings.RootOrganizationaUnitDN.Split(',')[0];
@@ -96,10 +96,15 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
                     // Retrieve the ExtensionAttribute mapping object
                     foreach (var mapping in appSettings.ExtensionAttributeMappings)
                     {
+                        _logger.LogDebug("Retrieving ExtensionAttribute {ExtensionAttribute} for Computer name: {ComputerName}", mapping.ExtensionAttribute, deviceName);
                         var extensionAttributeValue = await entraADHelper.GetExtensionAttribute(entraADDevice.Id, mapping.ExtensionAttribute);
-                        _logger.LogDebug("Retrieved extensionAttribute {extensionAttribute} with value: {ExtensionAttributeValue}", mapping.ExtensionAttribute, extensionAttributeValue);
+                        _logger.LogInformation("Retrieved extensionAttribute {extensionAttribute} with value: {ExtensionAttributeValue} for computer name {computername}", mapping.ExtensionAttribute, extensionAttributeValue, deviceName);
 
+                        _logger.LogDebug("Checking if ExtensionAttribute {ExtensionAttribute} needs to be updated for Computer name: {ComputerName}", mapping.ExtensionAttribute, deviceName);
+
+                        _logger.LogDebug("Retrieving ComputerAttribute {ComputerAttribute} for Computer name: {ComputerName}", mapping.ComputerAttribute, deviceName);
                         var currentComputerAttributeValue = await adHelper.GetComputerAttributeAsync(distinguishedName, mapping.ComputerAttribute);
+                        _logger.LogInformation("Retrieved ComputerAttribute {ComputerAttribute} with value: {ComputerAttributeValue} for Computer name: {ComputerName}", mapping.ComputerAttribute, currentComputerAttributeValue, deviceName);
 
                         // Check if the currentComputerAttributeValue is null or empty
                         if (string.IsNullOrWhiteSpace(currentComputerAttributeValue))
