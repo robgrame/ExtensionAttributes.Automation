@@ -43,8 +43,11 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
 
             await foreach (var directoryEntry in adHelper.GetDirectoryEntriesAsyncEnumerable(adHelperSettings.RootOrganizationaUnitDN))
             {
-                _logger.LogDebug(">>>>>>>>>>>> Processing Computer name: {ComputerName} >>>>>>>>>>>", directoryEntry.Name);
-               
+                
+                _logger.LogDebug("-----------------------------------------------------------------");
+                _logger.LogDebug("--------- Processing Computer name: {ComputerName} --------------", directoryEntry.Name));
+                _logger.LogDebug("_________________________________________________________________");
+
                 var rootOUName = adHelperSettings.RootOrganizationaUnitDN.Split(',')[0];
 
                 // Retrieve the rootOUName distinguishedName property
@@ -142,9 +145,12 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
                             {
                                 _logger.LogDebug("Updating ExtensionAttribute value from {OldValue} to {NewValue}", extensionAttributeValue, expectedComputerAttributeValue);
                                 await entraADHelper.SetExtensionAttributeValue(entraADDevice.Id, mapping.ExtensionAttribute, expectedComputerAttributeValue);
+                                _logger.LogTrace("ExtensionAttribute {ExtensionAttribute} updated successfully for Device ID: {DeviceId}", mapping.ExtensionAttribute, entraADDevice.Id);
 
                                 // Add the device to the updated devices collection
+                                _logger.LogDebug("Adding updated device to collection: {ComputerName}", directoryEntry.Name);
                                 UpdatedDevices.Add(Tuple.Create(entraADDevice, string.Join('-', mapping.ExtensionAttribute, expectedComputerAttributeValue)));
+                                _logger.LogTrace("Updated device added to collection: {ComputerName}", directoryEntry.Name);
                             }
                             else
                             {
@@ -166,31 +172,32 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
                 _logger.LogDebug("--------- ENDING Set Computer Extension Attribute Job -----------");
                 _logger.LogDebug("_________________________________________________________________");
 
-                if (UpdatedDevices.Count > 0)
-                {
-                    _logger.LogInformation("Exporting updated devices:");
-                    foreach (var deviceInfo in UpdatedDevices)
-                    {
-                        var device = deviceInfo.Item1;
-                        var departmentOUName = deviceInfo.Item2;
-                        _logger.LogInformation($"Exporting Device ID: {device.Id}, Device Name: {device.DisplayName}, Department OU Name: {departmentOUName}");
-                    }
+            }
 
-                    var exportTask = await ExportHelper.ExportDevicesToCsvAsync(serviceProvider, UpdatedDevices, ExportHelper.GetCsvFileName(appSettings.ExportFileNamePrefix));
-                    if (exportTask)
-                    {
-                        _logger.LogDebug("Exported updated devices to CSV file successfully.");
-                        UpdatedDevices.Clear();
-                    }
-                    else
-                    {
-                        _logger.LogError("Failed to export updated devices to CSV file.");
-                    }
+            if (UpdatedDevices.Count > 0)
+            {
+                _logger.LogInformation("Exporting updated devices:");
+                foreach (var deviceInfo in UpdatedDevices)
+                {
+                    var device = deviceInfo.Item1;
+                    var departmentOUName = deviceInfo.Item2;
+                    _logger.LogInformation($"Exporting Device ID: {device.Id}, Device Name: {device.DisplayName}, Department OU Name: {departmentOUName}");
+                }
+
+                var exportTask = await ExportHelper.ExportDevicesToCsvAsync(serviceProvider, UpdatedDevices, ExportHelper.GetCsvFileName(appSettings.ExportFileNamePrefix));
+                if (exportTask)
+                {
+                    _logger.LogDebug("Exported updated devices to CSV file successfully.");
+                    UpdatedDevices.Clear();
                 }
                 else
                 {
-                    _logger.LogInformation("No devices were updated.");
+                    _logger.LogError("Failed to export updated devices to CSV file.");
                 }
+            }
+            else
+            {
+                _logger.LogInformation("No devices were updated.");
             }
         }
 
