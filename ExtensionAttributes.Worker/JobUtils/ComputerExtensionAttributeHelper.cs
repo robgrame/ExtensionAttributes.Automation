@@ -43,6 +43,12 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
 
             await foreach (var directoryEntry in adHelper.GetDirectoryEntriesAsyncEnumerable(adHelperSettings.RootOrganizationaUnitDN))
             {
+                // Check if the object is a computer
+                if (directoryEntry.Properties["objectClass"].Value?.ToString() != "computer")
+                {
+                    _logger.LogDebug("Skipping non-computer object: {ObjectClass}", directoryEntry.Properties["objectClass"].Value);
+                    continue;
+                }
                 _logger.LogDebug(">>>>>>>>>>>> Processing Computer name: {ComputerName} >>>>>>>>>>>", directoryEntry.Name);
                
                 var rootOUName = adHelperSettings.RootOrganizationaUnitDN.Split(',')[0];
@@ -75,11 +81,19 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
                 }
 
 
-                // Retrieve the Entra AD Device by name
-                _logger.LogDebug("Getting Entra AD Device for Computer name: {ComputerName}", directoryEntry.Properties["cn"].Value.ToString());
-                var entraADDevice = await entraADHelper.GetDeviceByNameAsync(directoryEntry.Properties["cn"].Value.ToString());
 
-                if (entraADDevice != null)
+                var deviceName = directoryEntry.Properties["cn"].Value?.ToString();
+                if (string.IsNullOrEmpty(deviceName))
+                {
+                    _logger.LogWarning("Computer name is null for {DistinguishedName}. Skipping to next computer object..", distinguishedName);
+                    continue;
+                }
+                
+                // Retrieve the Entra AD Device by name
+                _logger.LogDebug("Getting Entra AD Device for Computer name: {ComputerName}", deviceName);
+                var entraADDevice = await entraADHelper.GetDeviceByNameAsync(deviceName);
+
+                if (entraADDevice != null && entraADDevice.Id != null)
                 {
                     _logger.LogDebug("Entra AD Device {ComputerName} has Entra Device ID: {DeviceId}", entraADDevice.DisplayName, entraADDevice.Id);
                     // Retrieve the ExtensionAttribute mapping object
@@ -99,7 +113,6 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
 
                         _logger.LogDebug("Retrieved Computer attribute {ComputerAttribute} with value: {ComputerAttributeValue}", mapping.ComputerAttribute, currentComputerAttributeValue);
 
-                        
                         string? expectedComputerAttributeValue = null;
                         //applying regex if it exists to ComputerAttribute
                         if (!string.IsNullOrWhiteSpace(mapping.Regex))
@@ -123,7 +136,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
                             _logger.LogDebug("No regex applied to ComputerAttribute: {ComputerAttribute}", mapping.ComputerAttribute);
                             expectedComputerAttributeValue = currentComputerAttributeValue;
                         }
-                        
+
                         // Check if the expectedComputerAttributeValue is null or empty
                         _logger.LogDebug("Current ComputerAttribute value: {CurrentComputerAttributeValue}", currentComputerAttributeValue);
                         _logger.LogDebug("Expected ComputerAttribute value: {ExpectedComputerAttributeValue}", expectedComputerAttributeValue);
@@ -131,76 +144,29 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
                         // Compare the ExtensionAttribute value with the extensionAttributeValue
                         if ((extensionAttributeValue != null && extensionAttributeValue != expectedComputerAttributeValue) || extensionAttributeValue == null)
                         {
-                            _logger.LogDebug("Updating ExtensionAttribute value from {OldValue} to {NewValue}", extensionAttributeValue, expectedComputerAttributeValue);
-                            await entraADHelper.SetExtensionAttributeValue(entraADDevice.Id, mapping.ExtensionAttribute, expectedComputerAttributeValue);
+                            if (!string.IsNullOrEmpty(expectedComputerAttributeValue))
+                            {
+                                _logger.LogDebug("Updating ExtensionAttribute value from {OldValue} to {NewValue}", extensionAttributeValue, expectedComputerAttributeValue);
+                                await entraADHelper.SetExtensionAttributeValue(entraADDevice.Id, mapping.ExtensionAttribute, expectedComputerAttributeValue);
+
+                                // Add the device to the updated devices collection
+                                UpdatedDevices.Add(Tuple.Create(entraADDevice, string.Join('-', mapping.ExtensionAttribute, expectedComputerAttributeValue)));
+                            }
+                            else
+                            {
+                                _logger.LogWarning("Expected ComputerAttribute value is null or empty for {ComputerName}. Skipping update for {extensionAttribute}", directoryEntry.Name, mapping.ExtensionAttribute);
+                            }
+
                         }
                         else
                         {
-                            _logger.LogDebug("No update needed for ExtensionAttribute {extensionAttribute}. Current value {currentExtensionAttributeValue} match expected value: {ExtensionAttributeValue}",mapping.ExtensionAttribute,  extensionAttributeValue, expectedComputerAttributeValue);
+                            _logger.LogDebug("No update needed for ExtensionAttribute {extensionAttribute}. Current value {currentExtensionAttributeValue} match expected value: {ExtensionAttributeValue}", mapping.ExtensionAttribute, extensionAttributeValue, expectedComputerAttributeValue);
                         }
 
                         _logger.LogDebug("########### ExtensionAttribute {ExtensionAttribute} for Device ID: {DeviceId} completed ###########", mapping.ExtensionAttribute, entraADDevice.Id);
                     }
                 }
 
-
-                //else if (appSettings.AttributeToSet.IsNullOrWhiteSpace() && appSettings.ExtensionAttributeMappings.Count == 0)
-                //{
-                //    _logger.LogWarning("AttributeToSet is not set in EntraADHelperSettings and no ExtensionAttributeMappings found. Skipping...");
-                //    continue;
-                //}
-                //else
-                //{
-
-                //    // Extract the departmentOUName from the distinguishedName using regex
-                //    string departmentOUName = null;
-                //    var regex = new Regex(adHelperSettings.DistinguishedNameRegEx);
-                //    _logger.LogTrace("Regex Pattern: {pattern}", adHelperSettings.DistinguishedNameRegEx);
-                //    _logger.LogTrace("Root OU Name: {rootOUName}", rootOUName);
-
-                //    var match = regex.Match(distinguishedName);
-                //    if (match.Success)
-                //    {
-                //        departmentOUName = match.Groups["departmentOUName"].Value;
-                //        _logger.LogDebug("OU Name extracted from Distinguished Name: {departmentOUName}", departmentOUName);
-                //    }
-                //    else
-                //    {
-                //        _logger.LogWarning("No match found for DistinguishedName: {distinguishedName}", distinguishedName);
-                //    }
-
-                //    var entraADDevice = await entraADHelper.GetDeviceByNameAsync(directoryEntry.Properties["name"].Value.ToString());
-
-                //    if (entraADDevice != null)
-                //    {
-                //        _logger.LogDebug("Entra AD Device ID: {DeviceId}", entraADDevice.Id);
-
-                //        // Retrieve the ExtensionAttribute value
-                //        var extensionAttributeValue = await entraADHelper.GetExtensionAttribute(entraADDevice.Id, appSettings.AttributeToSet);
-                //        _logger.LogDebug("Retrieved extensionAttribute {extensionAttribute} Value: {ExtensionAttributeValue}", appSettings.AttributeToSet, extensionAttributeValue);
-
-                //        _logger.LogDebug("Comparing ExtensionAttribute value with departmentOUName");
-                //        // Compare the ExtensionAttribute value with the departmentOUName
-                //        if ((extensionAttributeValue != null && extensionAttributeValue != departmentOUName) || extensionAttributeValue == null)
-                //        {
-                //            _logger.LogDebug("Updating ExtensionAttribute value from {OldValue} to {NewValue}", extensionAttributeValue, departmentOUName);
-                //            await entraADHelper.SetExtensionAttributeValue(entraADDevice.Id, appSettings.AttributeToSet, departmentOUName);
-
-                //            // Add the device to the updated devices collection
-                //            UpdatedDevices.Add(Tuple.Create(entraADDevice, departmentOUName));
-                //        }
-                //        else
-                //        {
-                //            _logger.LogDebug("No update needed for ExtensionAttribute value: {ExtensionAttributeValue}", extensionAttributeValue);
-                //        }
-                //    }
-                //    else
-                //    {
-                //        _logger.LogWarning("Entra AD Device not found for {ComputerName}", directoryEntry.Name);
-                //    }
-
-
-                //}
 
                 _logger.LogDebug("-----------------------------------------------------------------");
                 _logger.LogDebug("--------- ENDING Set Computer Extension Attribute Job -----------");

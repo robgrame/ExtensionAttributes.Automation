@@ -4,10 +4,10 @@ namespace Azure.Automation
 {
     public interface IEntraADHelper
     {
-        Task<Device> GetDeviceAsync(string deviceId);
-        Task<Device> GetDeviceByNameAsync(string deviceName);
-        Task<string> GetExtensionAttribute(string deviceId, string extensionAttribute);
-        Task<string> GetDeviceHWId(string deviceId);
+        Task<Device?> GetDeviceAsync(string deviceId);
+        Task<Device?> GetDeviceByNameAsync(string deviceName);
+        Task<string?> GetExtensionAttribute(string deviceId, string extensionAttribute);
+        Task<string?> GetDeviceHWId(string deviceId);
         Task<IEnumerable<string>> GetDeviceHWIdByComputerName(string computerName);
         Task<IEnumerable<Device>> GetDevicesWithSameHwId(string hardwareId);
         Task<IEnumerable<Device>> GetDevicesWithSameHwId(string hwId, string deviceId);
@@ -26,7 +26,7 @@ namespace Azure.Automation
         Task<IEnumerable<User>> GetUsers(int pagingNum);
 
         #region Set Device Attributes
-        Task<string> SetExtensionAttributeValue(string deviceId, string extenstionAttribute, string extensionAttributeValue);
+        Task<string?> SetExtensionAttributeValue(string deviceId, string extenstionAttribute, string extensionAttributeValue);
         #endregion
     }
 }

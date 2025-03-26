@@ -42,7 +42,7 @@ namespace Azure.Automation
         public async Task<IEnumerable<User>> GetUsers(int pagingNum)
         {
 
-            _logger.LogDebug("GetUsers Called");
+            _logger.LogTrace("GetUsers Called");
 
             List<User> userList = new List<User>();
 
@@ -90,12 +90,12 @@ namespace Azure.Automation
             catch (ServiceException ex)
             {
                 _logger.LogError(ex, "Error retrieving users");
-                return null;
+                return Enumerable.Empty<User>();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving users");
-                return null;
+                return Enumerable.Empty<User>();
             }
 
         }
@@ -114,7 +114,7 @@ namespace Azure.Automation
             }
         }
 
-        public async Task<Device> GetDeviceAsync(string deviceId)
+        public async Task<Device?> GetDeviceAsync(string deviceId)
         {
             try
             {
@@ -128,7 +128,7 @@ namespace Azure.Automation
             }
         }
 
-        public async Task<Device> GetDeviceByNameAsync(string deviceName)
+        public async Task<Device?> GetDeviceByNameAsync(string deviceName)
         {
             try
             {
@@ -152,7 +152,7 @@ namespace Azure.Automation
             }
         }
 
-        public async Task<string> GetExtensionAttribute(string deviceId, string extensionAttribute)
+        public async Task<string?> GetExtensionAttribute(string deviceId, string extensionAttribute)
         {
             _logger.LogTrace("GetExtensionAttribute Called");
 
@@ -160,40 +160,52 @@ namespace Azure.Automation
 
             {
                 // Get the access token
-                _logger.LogDebug("Get the Access Token");
+                _logger.LogTrace("Get the Access Token");
                 var token = await _authenticationHandler.GetAccessTokenAsync();
                 _logger.LogTrace("Access Token retrieved");
 
                 // Make the request to the Microsoft Graph API
-                _logger.LogDebug("Building the request to the Microsoft Graph API");
+                _logger.LogTrace("Building the request to the Microsoft Graph API");
                 var request = new HttpRequestMessage(HttpMethod.Get, $"https://graph.microsoft.com/v1.0/devices/{deviceId}");
                 _logger.LogTrace("Request built");
 
                 // Add the access token to the request headers
-                _logger.LogDebug("Adding the access token to the request headers");
+                _logger.LogTrace("Adding the access token to the request headers");
                 request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Token);
                 request.Headers.Add("ConsistencyLevel", "eventual");
                 _logger.LogTrace("Access token added to the request headers");
 
                 // Send the request
-                _logger.LogDebug("Sending the request");
+                _logger.LogTrace("Sending the request");
                 var response = await _httpClient.SendAsync(request);
                 _logger.LogTrace("Request sent");
 
                 // Check the response status code
-                _logger.LogDebug("Checking the response status code");
+                _logger.LogTrace("Checking the response status code");
                 if (response.IsSuccessStatusCode)
                 {
-                    _logger.LogDebug("Response status code is success");
+                    _logger.LogTrace("Response status code is success");
                     var content = await response.Content.ReadAsStringAsync();
                     _logger.LogTrace("Response content retrieved");
-                    _logger.LogDebug("Deserializing the response content");
+                    _logger.LogTrace("Deserializing the response content");
                     var device = System.Text.Json.JsonSerializer.Deserialize<EntraADDevice>(content);
                     _logger.LogTrace("Response content deserialized");
                     _logger.LogTrace("Returning the {extensionAttribute} value for the device {id}", extensionAttribute, deviceId);
 
-                    _logger.LogDebug("Device {deviceName} has the {extensionAttribute} value {extensionAttributeValue}", device.DisplayName, extensionAttribute, device.ExtensionAttributes.ExtensionAttribute1);
-                    return device.ExtensionAttributes.ExtensionAttribute1;
+                    // retrieve the extension attribute value from the device object
+                    if (device?.ExtensionAttributes == null)
+                    {
+                        _logger.LogError("Extension attributes are null for device {DeviceId}", deviceId);
+                        return null;
+                    }
+                    var extensionAttributeValue = device.ExtensionAttributes.GetType().GetProperty(extensionAttribute)?.GetValue(device.ExtensionAttributes, null);
+                    if (extensionAttributeValue == null)
+                    {
+                        _logger.LogError("Extension attribute {ExtensionAttribute} is null for device {DeviceId}", extensionAttribute, deviceId);
+                        return null;
+                    }
+                    _logger.LogTrace("Extension attribute {extensionAttribute} for device {deviceId} has value {extensionAttributeValue}", extensionAttribute, deviceId, extensionAttributeValue.ToString());
+                    return extensionAttributeValue.ToString();
                 }
                 else
                 {
@@ -220,49 +232,49 @@ namespace Azure.Automation
         }
 
 
-        public async Task<string> SetExtensionAttributeValue(string deviceId, string extensionAttributeName, string extensionAttributeValue)
+        public async Task<string?> SetExtensionAttributeValue(string deviceId, string extensionAttributeName, string extensionAttributeValue)
         {
             _logger.LogTrace("SetExtensionAttributeValue Called");
 
             try
             {
                 // Get the access token
-                _logger.LogDebug("Get the Access Token");
+                _logger.LogTrace("Get the Access Token");
                 var token = await _authenticationHandler.GetAccessTokenAsync();
                 _logger.LogTrace("Access Token retrieved");
 
                 // Make the request to the Microsoft Graph API
-                _logger.LogDebug("Building the request to the Microsoft Graph API");
+                _logger.LogTrace("Building the request to the Microsoft Graph API");
                 var request = new HttpRequestMessage(HttpMethod.Patch, $"https://graph.microsoft.com/v1.0/devices/{deviceId}");
                 _logger.LogTrace("Request {request} built", request.RequestUri);
 
                 // Add the access token to the request headers
-                _logger.LogDebug("Adding the access token to the request headers");
+                _logger.LogTrace("Adding the access token to the request headers");
                 request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Token);
                 request.Headers.Add("ConsistencyLevel", "eventual");
                 _logger.LogTrace("Access token added to the request headers");
 
                 // Add the request body
-                _logger.LogDebug("Adding the request body");
+                _logger.LogTrace("Adding the request body");
                 request.Content = new StringContent($"{{\"extensionAttributes\":{{\"{extensionAttributeName}\":\"{extensionAttributeValue}\"}}}}", System.Text.Encoding.UTF8, "application/json");
                 _logger.LogTrace("Request body added");
 
 
                 // Send the request
-                _logger.LogDebug("Sending the request");
+                _logger.LogTrace("Sending the request");
                 var response = await _httpClient.SendAsync(request);
                 _logger.LogTrace("Request sent");
 
                 // Check the response status code
-                _logger.LogDebug("Checking the response status code");
+                _logger.LogTrace("Checking the response status code");
                 if (response.IsSuccessStatusCode)
                 {
-                    _logger.LogDebug("Response status code is success");
+                    _logger.LogTrace("Response status code is success");
                     _logger.LogTrace("Checking the {extensionAttribute} value for the device {id}", extensionAttributeName, deviceId);
 
                     var attribute = await GetExtensionAttribute(deviceId, extensionAttributeName);
-                    _logger.LogTrace("Extension attribute {extensionAttribute} for device {deviceId} now has value ", extensionAttributeName, deviceId, attribute);
-                    return attribute;
+                    _logger.LogTrace("Extension attribute {extensionAttribute} for device {deviceId} now has value {attribute} ", extensionAttributeName, deviceId, attribute);
+                    return attribute ?? string.Empty; // Ensure non-null return
                 }
                 else
                 {
@@ -484,17 +496,17 @@ namespace Azure.Automation
                             var hwId = device.PhysicalIds?.Find(static x => x.StartsWith("[HWID]"))?.Split(':')[2];
                             if (hwId != null)
                             {
-                                _logger.LogDebug("Device Name {DisplayName} | DeviceID: {DeviceId} | TrustType: {TrustType} | HWID: {HWID}", device.DisplayName, device.DeviceId, device.TrustType, hwId);
+                                _logger.LogTrace("Device Name {DisplayName} | DeviceID: {DeviceId} | TrustType: {TrustType} | HWID: {HWID}", device.DisplayName, device.DeviceId, device.TrustType, hwId);
                             }
                             else
                             {
-                                _logger.LogDebug("Device Name {DisplayName} | DeviceID: {DeviceId} | TrustType: {TrustType}", device.DisplayName, device.DeviceId, device.TrustType);
+                                _logger.LogTrace("Device Name {DisplayName} | DeviceID: {DeviceId} | TrustType: {TrustType}", device.DisplayName, device.DeviceId, device.TrustType);
                             }
                         }
                         catch (Exception ex)
                         {
                             _logger.LogError(ex, "Error retrieving HWID for device {DeviceId}", device.DeviceId);
-                            _logger.LogDebug("Device Name {DisplayName} | DeviceID: {DeviceId} | TrustType: {TrustType}", device.DisplayName, device.DeviceId, device.TrustType);
+                            _logger.LogTrace("Device Name {DisplayName} | DeviceID: {DeviceId} | TrustType: {TrustType}", device.DisplayName, device.DeviceId, device.TrustType);
                         }
                     }
 
@@ -530,57 +542,45 @@ namespace Azure.Automation
         }
 
 
-        public async Task<string> GetDeviceHWId(string deviceId)
+        public async Task<string?> GetDeviceHWId(string deviceId)
         {
-
             // retrieve the array item of the PhysicalIds property starting with "[HWID]" and extract the HWID value
             try
             {
-
                 var device = await _graphServiceClient.Devices[deviceId].GetAsync();
 
-                if (device == null)
+                if (device == null || device.PhysicalIds == null || device.PhysicalIds.Count == 0)
                 {
-                    return null;
-                }
-
-                if (device.PhysicalIds == null || device.PhysicalIds.Count == 0)
-                {
-                    return null;
+                    return string.Empty; // Return an empty string instead of null
                 }
 
                 try
                 {
-
-                    var hwId = device.PhysicalIds.Find(static x => x.StartsWith("[HWID]")).Split(':')[2];
+                    var hwId = device.PhysicalIds.Find(static x => x.StartsWith("[HWID]"))?.Split(':')[2];
                     if (hwId != null)
                     {
                         _logger.LogInformation("Device {DeviceID} has the Hardware ID {hwId}", device.Id, hwId);
                         return hwId;
-
                     }
                     else
                     {
                         _logger.LogInformation("Device {DeviceID} has no Hardware ID", device.Id);
-                        return null;
+                        return string.Empty; // Return an empty string instead of null
                     }
-                  
-
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error retrieving HWID for device {DeviceId}", deviceId);
-                    return null;
+                    return string.Empty; // Return an empty string instead of null
                 }
-
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving HWID for device {DeviceId}", deviceId);
-                return null;
+                return string.Empty; // Return an empty string instead of null
             }
-
         }
+
 
         public async Task<IEnumerable<Device>> GetDevicesWithSameHwId(string hwId)
         {
@@ -690,7 +690,7 @@ namespace Azure.Automation
 
                 if (devices?.Value == null || devices.Value.Count == 0)
                 {
-                    return null;
+                    return Enumerable.Empty<string>();
                 }
 
                 foreach (var device in devices.Value)
@@ -703,12 +703,12 @@ namespace Azure.Automation
                     // retrieve the array item of the PhysicalIds property starting with "[HWID]" and extract the HWID value
                     try
                     {
-                        string hwId = device.PhysicalIds.Find(x => x.StartsWith("[HWID]")).Split(':')[2];
-                        if (hwId != null)
+                        var hwIdEntry = device.PhysicalIds.Find(x => x.StartsWith("[HWID]"));
+                        if (hwIdEntry != null)
                         {
+                            string hwId = hwIdEntry.Split(':')[2];
                             _logger.LogInformation("Device {DeviceID} has the Hardware ID {hwId}", device.Id, hwId);
                             hwIds.Add(hwId);
-
                         }
                         else
                         {
@@ -718,7 +718,6 @@ namespace Azure.Automation
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Error retrieving HWID for device {DeviceId}", device.Id);
-
                     }
                 }
 
@@ -727,8 +726,9 @@ namespace Azure.Automation
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving HWID for device {ComputerName}", computerName);
-                return null;
+                return Enumerable.Empty<string>();
             }
         }
+
     }
 }

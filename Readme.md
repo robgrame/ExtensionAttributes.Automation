@@ -27,7 +27,7 @@ This project is part of a larger automation framework that aims to simplify data
 
 ## Overview :briefcase:
 Entra AD (Active Directory) is a cloud-based identity and access management service from Microsoft. It allows organizations to manage user identities and access to resources securely. Extension attributes are custom attributes that can be added to Entra AD objects, such as users and computers, to store additional information.
-These attributes can be used for various purposes, such as storing metadata or integrating with other systems or more simply to store create dynamic groups based on these attributes.
+These attributes can be used for various purposes, such as storing metadata or integrating with other systems or more simply to create dynamic groups based on these attributes.
 
 Entra AD Connect is a tool that synchronizes on-premises directories with Entra AD, allowing organizations to manage their identities in a hybrid environment. However, it has limitations when it comes to synchronizing certain attributes, such as computer extension attributes.
 

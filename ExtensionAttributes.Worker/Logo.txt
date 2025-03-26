@@ -17,14 +17,6 @@ RR:::::R     R:::::R  G:::::GGGGGGGG::::GPP::::::PP
 R::::::R     R:::::R   GG:::::::::::::::GP::::::::P          
 R::::::R     R:::::R     GGG::::::GGG:::GP::::::::P          
 RRRRRRRR     RRRRRRR        GGGGGG   GGGGPPPPPPPPPP          
-                                                             
-                                                             
-                                                             
-                                                             
-                                                             
-                                                             
-                                                             
-
                     _                                   _          
                    | |                                 (_)         
 __      _____  _ __| | _____ _ __   ___  ___ _ ____   ___  ___ ___ 

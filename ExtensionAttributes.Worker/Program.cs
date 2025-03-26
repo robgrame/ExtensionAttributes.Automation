@@ -36,7 +36,8 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
             {
                 var builder = Host.CreateApplicationBuilder(args);
 
-                var exePath = Path.GetDirectoryName(Assembly.GetEntryAssembly()!.Location)!;
+                var exePath = Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location ?? string.Empty)!;
+
                 builder.Configuration.AddJsonFile(Path.Combine(exePath, "appsettings.json"), optional: true, reloadOnChange: true);
                 builder.Configuration.AddJsonFile(Path.Combine(exePath, "schedule.json"), optional: true, reloadOnChange: true);
                 builder.Configuration.AddJsonFile(Path.Combine(exePath, "logging.json"), optional: true, reloadOnChange: true);
@@ -191,14 +192,16 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
 
                 // Print out the Worker Service Assembly name and version
                 string assemblyVersion = System.Diagnostics.FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly()?.Location ?? string.Empty).FileVersion?.ToString() ?? "Unknown version";
+
                 Log.Information("Worker Service Assembly: {AssemblyName} with version: {version}", Assembly.GetExecutingAssembly().GetName().Name, assemblyVersion);
                 Log.Information("Worker Service arguments: {args}", string.Join(" ", args));
                 // Print out the AppSettings values
-                Log.Information("ClientId: {ClientId}", entraADHelperSettings.ClientId == null ? "ClientID not provided" : entraADHelperSettings.ClientId);
-                Log.Information("TenantId: {TenantId}", entraADHelperSettings.TenantId == null ? "TenantId not provided" : entraADHelperSettings.TenantId);
-                Log.Information("UseClientSecret: {UseClient} ", entraADHelperSettings.UseClientSecret);
-                Log.Information("ClientSecret: {ClientSecret}", entraADHelperSettings.ClientSecret == null ? "ClientSecret not provided" : "**********");
-                Log.Information("CertificateThumbprint: {CertificateThumbprint}", entraADHelperSettings.CertificateThumbprint == null ? "CertificateThumbprint not provided" : entraADHelperSettings.CertificateThumbprint);
+                Log.Information("ClientId: {ClientId}", entraADHelperSettings?.ClientId ?? "ClientID not provided");
+                Log.Information("TenantId: {TenantId}", entraADHelperSettings?.TenantId ?? "TenantId not provided");
+                Log.Information("UseClientSecret: {UseClient} ", entraADHelperSettings?.UseClientSecret);
+                Log.Information("ClientSecret: {ClientSecret}", entraADHelperSettings?.ClientSecret == null ? "ClientSecret not provided" : "**********");
+                Log.Information("CertificateThumbprint: {CertificateThumbprint}", entraADHelperSettings?.CertificateThumbprint ?? "CertificateThumbprint not provided");
+
                 Log.Information("RootOrganizationaUnitDN: {RootOrganizationaUnitDN}", adHelperSettings.RootOrganizationaUnitDN == null ? "RootOrganizationaUnitDN not provided" : adHelperSettings.RootOrganizationaUnitDN);
 
                 Log.Information("ExtensionAttributeMappings: {ExtensionAttributeMappings}", string.Join(", ", settings.ExtensionAttributeMappings.Select(m => m.ToString())));
@@ -238,7 +241,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
 
                         using var store = new X509Store(StoreLocation.LocalMachine);
                         store.Open(OpenFlags.ReadOnly);
-                        var certificate = store.Certificates.Find(X509FindType.FindByThumbprint, entraADHelperSettings.CertificateThumbprint, validOnly: false).OfType<X509Certificate2>().FirstOrDefault();
+                        var certificate = store.Certificates.Find(X509FindType.FindByThumbprint, entraADHelperSettings.CertificateThumbprint ?? string.Empty, validOnly: false).OfType<X509Certificate2>().FirstOrDefault();
 
                         if (certificate != null)
                         {
@@ -364,10 +367,18 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
                     var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
 
                     // Call the static method
-                    await ComputerExtensionAttributeHelper.SetExtensionAttributeAsync(serviceProvider);
-                    
+                    if (OperatingSystem.IsWindows())
+                    {
+                        await ComputerExtensionAttributeHelper.SetExtensionAttributeAsync(serviceProvider);
+                    }
+                    else
+                    {
+                        logger.LogError("The SetExtensionAttributeAsync method is only supported on Windows.");
+                    }
+
                     return;
                 }
+
             }
             catch (Exception ex)
             {

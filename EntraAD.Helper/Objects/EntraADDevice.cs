@@ -31,67 +31,67 @@ namespace Azure.Automation.Objects
         public string? IdentityProvider { get; set; }
 
         [JsonPropertyName("key")]
-        public string Key { get; set; }
+        public required string Key { get; set; }
     }
 
     public class ExtensionAttributes
     {
         [JsonPropertyName("extensionAttribute1")]
-        public string ExtensionAttribute1 { get; set; }
+        public string? ExtensionAttribute1 { get; set; }
 
         [JsonPropertyName("extensionAttribute2")]
-        public string ExtensionAttribute2 { get; set; }
+        public string? ExtensionAttribute2 { get; set; }
 
         [JsonPropertyName("extensionAttribute3")]
-        public string ExtensionAttribute3 { get; set; }
+        public string? ExtensionAttribute3 { get; set; }
 
         [JsonPropertyName("extensionAttribute4")]
-        public string ExtensionAttribute4 { get; set; }
+        public string? ExtensionAttribute4 { get; set; }
 
         [JsonPropertyName("extensionAttribute5")]
-        public string ExtensionAttribute5 { get; set; }
+        public string? ExtensionAttribute5 { get; set; }
 
         [JsonPropertyName("extensionAttribute6")]
-        public string ExtensionAttribute6 { get; set; }
+        public string? ExtensionAttribute6 { get; set; }
 
         [JsonPropertyName("extensionAttribute7")]
-        public string ExtensionAttribute7 { get; set; }
+        public string? ExtensionAttribute7 { get; set; }
 
         [JsonPropertyName("extensionAttribute8")]
-        public string ExtensionAttribute8 { get; set; }
+        public string? ExtensionAttribute8 { get; set; }
 
         [JsonPropertyName("extensionAttribute9")]
-        public string ExtensionAttribute9 { get; set; }
+        public string? ExtensionAttribute9 { get; set; }
 
         [JsonPropertyName("extensionAttribute10")]
-        public string ExtensionAttribute10 { get; set; }
+        public string? ExtensionAttribute10 { get; set; }
 
         [JsonPropertyName("extensionAttribute11")]
-        public string ExtensionAttribute11 { get; set; }
+        public string? ExtensionAttribute11 { get; set; }
 
         [JsonPropertyName("extensionAttribute12")]
-        public string ExtensionAttribute12 { get; set; }
+        public string? ExtensionAttribute12 { get; set; }
 
         [JsonPropertyName("extensionAttribute13")]
-        public string ExtensionAttribute13 { get; set; }
+        public string? ExtensionAttribute13 { get; set; }
 
         [JsonPropertyName("extensionAttribute14")]
-        public string ExtensionAttribute14 { get; set; }
+        public string? ExtensionAttribute14 { get; set; }
 
         [JsonPropertyName("extensionAttribute15")]
-        public string ExtensionAttribute15 { get; set; }
+        public string? ExtensionAttribute15 { get; set; }
     }
 
     public class EntraADDevice
     {
         [JsonPropertyName("@odata.context")]
-        public string OdataContext { get; set; }
+        public required string OdataContext { get; set; }
 
         [JsonPropertyName("@microsoft.graph.tips")]
-        public string MicrosoftGraphTips { get; set; }
+        public required string MicrosoftGraphTips { get; set; }
 
         [JsonPropertyName("id")]
-        public string Id { get; set; }
+        public required string Id { get; set; }
 
         [JsonPropertyName("deletedDateTime")]
         public DateTime? DeletedDateTime { get; set; }
@@ -109,22 +109,22 @@ namespace Azure.Automation.Objects
         public DateTime? CreatedDateTime { get; set; }
 
         [JsonPropertyName("deviceCategory")]
-        public string DeviceCategory { get; set; }
+        public string? DeviceCategory { get; set; }
 
         [JsonPropertyName("deviceId")]
-        public string DeviceId { get; set; }
+        public string? DeviceId { get; set; }
 
         [JsonPropertyName("deviceMetadata")]
         public string? DeviceMetadata { get; set; }
 
         [JsonPropertyName("deviceOwnership")]
-        public string DeviceOwnership { get; set; }
+        public string? DeviceOwnership { get; set; }
 
         [JsonPropertyName("deviceVersion")]
         public int? DeviceVersion { get; set; }
 
         [JsonPropertyName("displayName")]
-        public string DisplayName { get; set; }
+        public string? DisplayName { get; set; }
 
         [JsonPropertyName("domainName")]
         public string? DomainName { get; set; }
@@ -142,28 +142,28 @@ namespace Azure.Automation.Objects
         public bool? IsCompliant { get; set; }
 
         [JsonPropertyName("isManaged")]
-        public object IsManaged { get; set; }
+        public object? IsManaged { get; set; }
 
         [JsonPropertyName("isRooted")]
-        public object IsRooted { get; set; }
+        public object? IsRooted { get; set; }
 
         [JsonPropertyName("managementType")]
-        public object ManagementType { get; set; }
+        public object? ManagementType { get; set; }
 
         [JsonPropertyName("manufacturer")]
-        public object Manufacturer { get; set; }
+        public object? Manufacturer { get; set; }
 
         [JsonPropertyName("mdmAppId")]
-        public object MdmAppId { get; set; }
+        public object? MdmAppId { get; set; }
 
         [JsonPropertyName("model")]
-        public object Model { get; set; }
+        public object? Model { get; set; }
 
         [JsonPropertyName("onPremisesLastSyncDateTime")]
-        public object OnPremisesLastSyncDateTime { get; set; }
+        public object? OnPremisesLastSyncDateTime { get; set; }
 
         [JsonPropertyName("onPremisesSyncEnabled")]
-        public object OnPremisesSyncEnabled { get; set; }
+        public object? OnPremisesSyncEnabled { get; set; }
 
         [JsonPropertyName("operatingSystem")]
         public string? OperatingSystem { get; set; } = "Unknown";
@@ -172,10 +172,10 @@ namespace Azure.Automation.Objects
         public string? OperatingSystemVersion { get; set; } = "Unknown";
 
         [JsonPropertyName("physicalIds")]
-        public List<string> PhysicalIds { get; set; }
+        public List<string>? PhysicalIds { get; set; }
 
         [JsonPropertyName("profileType")]
-        public string ProfileType { get; set; }
+        public string? ProfileType { get; set; }
 
         [JsonPropertyName("registrationDateTime")]
         public DateTime? RegistrationDateTime { get; set; }
@@ -184,16 +184,16 @@ namespace Azure.Automation.Objects
         public string? SourceType { get; set; }
 
         [JsonPropertyName("systemLabels")]
-        public List<string> SystemLabels { get; set; }
+        public List<string>? SystemLabels { get; set; }
 
         [JsonPropertyName("trustType")]
-        public string TrustType { get; set; }
+        public string? TrustType { get; set; }
 
         [JsonPropertyName("extensionAttributes")]
-        public ExtensionAttributes ExtensionAttributes { get; set; }
+        public required ExtensionAttributes ExtensionAttributes { get; set; }
 
         [JsonPropertyName("alternativeSecurityIds")]
-        public List<AlternativeSecurityId> AlternativeSecurityIds { get; set; }
+        public List<AlternativeSecurityId>? AlternativeSecurityIds { get; set; }
     }
 
 

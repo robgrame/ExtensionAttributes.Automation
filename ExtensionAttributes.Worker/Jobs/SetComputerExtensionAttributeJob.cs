@@ -4,6 +4,7 @@ using AD.Helper.Config;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Quartz;
+using System.Runtime.Versioning;
 
 namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Jobs
 {
@@ -12,8 +13,8 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Jobs
     {
         private readonly ILogger<SetComputerExtensionAttributeJob> _logger;
         private readonly IServiceProvider _serviceProvider;
-        private readonly AppSettings _appSettings;
-        private readonly ADHelperSettings _adHelperSettings;
+        
+        
 
         public SetComputerExtensionAttributeJob(IServiceProvider serviceProvider, ILogger<SetComputerExtensionAttributeJob> logger)
         {
@@ -22,6 +23,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Jobs
 
         }
 
+        [SupportedOSPlatform("windows")]
         public async Task Execute(IJobExecutionContext context)
         {
             _logger.LogDebug("-----------------------------------------------------------------");

@@ -50,6 +50,11 @@ public static class ServiceCollectionExtensions
                 AuthorityHost = AzureAuthorityHosts.AzurePublicCloud
             };
 
+            if (settings == null || settings.TenantId == null || settings.ClientId == null || settings.ClientSecret == null)
+            {
+                throw new ArgumentNullException("EntraADHelperSettings, TenantId, ClientId, and ClientSecret must not be null.");
+            }
+
             var clientSecretCredential = new ClientSecretCredential(
                 settings.TenantId, settings.ClientId, settings.ClientSecret, options);
 
@@ -62,5 +67,6 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+
 }
 
