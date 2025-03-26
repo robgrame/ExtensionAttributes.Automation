@@ -432,7 +432,7 @@ You can download the latest release from the following link:
 
 1. Clone the repository:
     ```sh
-    git clone https://github.com/robgrame/ACI.Informatica.Automation.WorkerSvc.git
+    git clone https://github.com/robgrame/ExtensionAttributes.Automation.git
     ```
 1. Download the project from GitHub.
 1. Uncompress the downloaded file into a folder.
