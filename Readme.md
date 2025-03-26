@@ -544,7 +544,7 @@ For any questions or feedback, you can reach me at [roberto.gramellini@microsoft
 
 - **Version 1.0.0**: Initial release of the Extension Attributes Automation Worker Service.
 - **Version 1.1.0**: Added support for running as a Windows service and improved logging capabilities.
-- **Version 1.2.0**: Fixed issues with Entra AD token expiration and improved error handling.
+- **Version 1.1.7**: Fixed issues with Entra AD token expiration and improved error handling.
 
 ## Known Issues :warning:
 - The service may not handle all edge cases when processing extension attributes. Please report any issues you encounter.
