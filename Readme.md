@@ -15,9 +15,9 @@ This project is part of a larger automation framework that aims to simplify data
 
 - [Requirements](#requirements)
   - [.NET Core 9.0 or later](#net-core-90-or-later)
-  - [Entra AD App Registration](#entra-ad-app-registration)]
+  - [Entra AD App Registration](#entra-ad-app-registration)
 - [Installation](#installation)
-    - [Download the Binary Files](#download-the-binary-files)]
+    - [Download the Binary Files](#download-the-binary-files)
     - [Building the Project](#building-the-project)
 - [Usage](#usage)
     - [Configuration](#configuration)
