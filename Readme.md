@@ -1,4 +1,8 @@
-﻿# Extension Attributes Automation Worker :rocket:
+﻿# :loudspeaker: Extension Attributes Automation Worker :rocket:
+ ![.Net](https://img.shields.io/badge/.NET-5C2D91?style=for-the-badge&logo=.net&logoColor=white)
+![Visual Studio](https://img.shields.io/badge/Visual%20Studio-5C2D91.svg?style=for-the-badge&logo=visual-studio&logoColor=white)
+![GitHub](https://img.shields.io/badge/github-%23121011.svg?style=for-the-badge&logo=github&logoColor=white)
+![Nuget](https://img.shields.io/badge/nuget-%230077B5.svg?style=for-the-badge&logo=nuget&logoColor=white)
 
 Have you ever needed to automate the management of computer extension attributes in Entra AD? Look no further! The Extension Attributes Automation Worker Service is here to help you streamline this process.
 
@@ -13,7 +17,15 @@ This project is part of a larger automation framework that aims to simplify data
   - [.NET Core 9.0 or later](#net-core-90-or-later)
   - [Entra AD App Registration](#entra-ad-app-registration)]
 - [Installation](#installation)
+    - [Download the Binary Files](#download-the-binary-files)]
+    - [Building the Project](#building-the-project)
 - [Usage](#usage)
+    - [Configuration](#configuration)
+      - [appsettings.json](#appsettingsjson)
+      - [logging.json](#loggingjson)
+      - [schedule.json](#schedulejson)
+    - [Running as a Console Application](#running-as-a-console-application)
+    - [Running as a Windows Service](#running-as-a-windows-service)
 - [Contributing](#contributing)
 - [License](#license)
 - [Contact](#contact)
@@ -27,7 +39,7 @@ This project is part of a larger automation framework that aims to simplify data
 
 ## Overview :briefcase:
 Entra AD (Active Directory) is a cloud-based identity and access management service from Microsoft. It allows organizations to manage user identities and access to resources securely. Extension attributes are custom attributes that can be added to Entra AD objects, such as users and computers, to store additional information.
-These attributes can be used for various purposes, such as storing metadata or integrating with other systems or more simply to create dynamic groups based on these attributes.
+These attributes can be used for various purposes, such as storing metadata or integrating with other systems or more simply to store create dynamic groups based on these attributes.
 
 Entra AD Connect is a tool that synchronizes on-premises directories with Entra AD, allowing organizations to manage their identities in a hybrid environment. However, it has limitations when it comes to synchronizing certain attributes, such as computer extension attributes.
 
@@ -41,6 +53,7 @@ This project is built in C# and the .NET Core 9.0 framework leveraging largely a
 
 ## Features :star:
 - The solution can run either as standalone console application, either running as a Windows service, allowing it to operate in the background without user intervention
+- The solution enables to map all computer extension attributes to existing AD computer object attributes, leveraging regular expressions to extract, if needed, specific values from the existing AD computer object attributes
 - It can be configured to run at specified intervals, ensuring that extension attributes are updated regularly leveraging Quartz.Net, a very efficient and largely adopted NuGet package
 - Given the nature of the application, it is designed to be run on a Windows server, but it can also be run on any machine that supports .NET Core 9.0
 - This solution aims to fill the gap of the Entra AD Connect to synchronize computer extension attributes. To do that it automates the management of extension attributes in Entra AD, leveraging current AD Computer object attributes, reducing manual effort and potential errors.
@@ -70,7 +83,9 @@ To run this service, you need to have .NET Core 9.0 or later installed on your m
    This should display the version of .NET Core installed on your machine.
 
 ### Entra AD App Registration :heavy_check_mark:
-To use this service, you need to create an Entra AD App Registration with the necessary permissions to manage extension attributes. Follow these steps:
+To use this service, you need to create an Entra AD App Registration with the necessary permissions to manage extension attributes.
+
+To create the Entra AD app registration follow these steps:
 1. Go to the [Azure portal](https://portal.azure.com/).
 1. Navigate to "Azure Active Directory" > "App registrations".
 1. Click on "New registration".
@@ -86,6 +101,7 @@ To use this service, you need to create an Entra AD App Registration with the ne
    To authenticate the service, you can either create a client secret or upload a certificate. You can choose one of the following methods:
 
    ##### Create a Client Secret :heavy_check_mark:
+   Though using a client secret is not recommended for production environments, it can be used for testing purposes. To create a client secret, follow these steps:
 
    1. Click on "New client secret" to create a new client secret.
 
@@ -98,7 +114,7 @@ To use this service, you need to create an Entra AD App Registration with the ne
       1. Copy the value of the client secret and store it securely, as you will need it later.
    
     ##### Upload a Certificate :heavy_check_mark:
-
+    Use this method if you want to use a certificate for authentication. This is the recommended approach for production environments, as it provides better security and management of credentials.
 
     ##### Create a self-signed certificate :heavy_check_mark:
     1. Open PowerShell as an administrator.
@@ -395,11 +411,27 @@ This file contains the main configuration settings for the service. You can modi
         ```
 ## Installation :floppy_disk:
 
+To install the Extension Attributes Automation Worker Service, follow these steps:
+
+- Ensure you have the required prerequisites installed on your machine, including .NET Core 9.0 or later and the Entra AD App Registration.
+- You can download either the whole project from GitHub if you want to modify the code or just the binary files if you want to run the service as is.
+
+- If you want to modify the code, follow the instructions in the [Building the Project](#building-the-project) section.
+- if you prefer to download binary file 
+
+### Download the Binary Files :floppy_disk:
+
+Binary files can be downloaded from releases section of the GitHub repository.
+You can download the latest release from the following link:
+
+[Releases](https://github.com/robgrame/ExtensionAttributes.Automation/releases)
+
+
 ### Building the Project :hammer_and_wrench:
 
 1. Clone the repository:
     ```sh
-    git clone https://github.com/robgrame/ExtensionAttributes.Worker.git
+    git clone https://github.com/robgrame/ACI.Informatica.Automation.WorkerSvc.git
     ```
 1. Download the project from GitHub.
 1. Uncompress the downloaded file into a folder.
