@@ -201,7 +201,7 @@ namespace Azure.Automation
                     var extensionAttributeValue = device.ExtensionAttributes.GetType().GetProperty(extensionAttribute)?.GetValue(device.ExtensionAttributes, null);
                     if (extensionAttributeValue == null)
                     {
-                        _logger.LogError("Extension attribute {ExtensionAttribute} is null for device {DeviceId}", extensionAttribute, deviceId);
+                        _logger.LogWarning("Extension attribute {ExtensionAttribute} is null for device {DeviceId}", extensionAttribute, deviceId);
                         return null;
                     }
                     _logger.LogTrace("Extension attribute {extensionAttribute} for device {deviceId} has value {extensionAttributeValue}", extensionAttribute, deviceId, extensionAttributeValue.ToString());

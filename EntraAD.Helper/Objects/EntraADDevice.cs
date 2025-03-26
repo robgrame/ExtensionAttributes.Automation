@@ -88,7 +88,7 @@ namespace Azure.Automation.Objects
         public required string OdataContext { get; set; }
 
         [JsonPropertyName("@microsoft.graph.tips")]
-        public required string MicrosoftGraphTips { get; set; }
+        public string? MicrosoftGraphTips { get; set; }
 
         [JsonPropertyName("id")]
         public required string Id { get; set; }

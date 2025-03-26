@@ -43,12 +43,6 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
 
             await foreach (var directoryEntry in adHelper.GetDirectoryEntriesAsyncEnumerable(adHelperSettings.RootOrganizationaUnitDN))
             {
-                // Check if the object is a computer
-                if (directoryEntry.Properties["objectClass"].Value?.ToString() != "computer")
-                {
-                    _logger.LogDebug("Skipping non-computer object: {ObjectClass}", directoryEntry.Properties["objectClass"].Value);
-                    continue;
-                }
                 _logger.LogDebug(">>>>>>>>>>>> Processing Computer name: {ComputerName} >>>>>>>>>>>", directoryEntry.Name);
                
                 var rootOUName = adHelperSettings.RootOrganizationaUnitDN.Split(',')[0];
@@ -77,7 +71,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
                 _logger.LogTrace("Processing Extension Attributes Mapping...");
                 foreach (var mapping in appSettings.ExtensionAttributeMappings)
                 {
-                    _logger.LogDebug("ExtensionAttributeMapping: {ExtensionAttributeMapping}", mapping.ToString());
+                    _logger.LogTrace("ExtensionAttributeMapping: {ExtensionAttributeMapping}", mapping.ToString());
                 }
 
 
