@@ -156,6 +156,20 @@ namespace Azure.Automation
         {
             _logger.LogTrace("GetExtensionAttribute Called");
 
+            // Convert the extensionAttribute parameter to the correct casing
+            // The extension attribute names are case-sensitive, so we need to ensure that the casing is correct
+            // For example, if the extension attribute is "extensionAttribute1", we need to convert it to "ExtensionAttribute1"
+            // The correct casing is to capitalize the first letter of the extension attribute name
+
+            // First convert the extension attribute name to lower case and then capitalize the first letter and the 10th letter
+            string lowerCasedExtensionAttribute = extensionAttribute.ToLowerInvariant();
+            // Capitalize the first letter of the extension attribute name
+            string correctCasingAttribute = char.ToUpperInvariant(lowerCasedExtensionAttribute[0]) + lowerCasedExtensionAttribute.Substring(1);
+            // Capitalize the 10th letter of the extension attribute name
+            correctCasingAttribute = correctCasingAttribute.Substring(0, 9) + char.ToUpperInvariant(extensionAttribute[9]) + extensionAttribute.Substring(10);
+            _logger.LogTrace("Extension attribute name {extensionAttribute} converted to {correctCasingAttribute}", extensionAttribute, correctCasingAttribute);
+
+
             try
 
             {
@@ -198,7 +212,7 @@ namespace Azure.Automation
                         _logger.LogError("Extension attributes are null for device {DeviceId}", deviceId);
                         return null;
                     }
-                    var extensionAttributeValue = device.ExtensionAttributes.GetType().GetProperty(extensionAttribute)?.GetValue(device.ExtensionAttributes, null);
+                    var extensionAttributeValue = device.ExtensionAttributes.GetType().GetProperty(correctCasingAttribute)?.GetValue(device.ExtensionAttributes, null);
                     if (extensionAttributeValue == null)
                     {
                         _logger.LogWarning("Extension attribute {ExtensionAttribute} is null for device {DeviceId}", extensionAttribute, deviceId);
@@ -235,6 +249,14 @@ namespace Azure.Automation
         public async Task<string?> SetExtensionAttributeValue(string deviceId, string extensionAttributeName, string extensionAttributeValue)
         {
             _logger.LogTrace("SetExtensionAttributeValue Called");
+
+            // Convert the extensionAttribute parameter to the correct casing
+            // The extension attribute names are case-sensitive, so we need to ensure that the casing is correct
+
+            var lowerCasedExtensionAttribute = extensionAttributeName.ToLowerInvariant();
+            //Coapitalize the 10th letter of the extension attribute name
+            var correctCasingAttribute = lowerCasedExtensionAttribute.Substring(0, 9) + char.ToUpperInvariant(extensionAttributeName[9]) + extensionAttributeName.Substring(10);
+            _logger.LogTrace("Correct casing for extension attribute {extensionAttribute} is {correctCasingAttribute}", extensionAttributeName, correctCasingAttribute);
 
             try
             {

@@ -18,7 +18,7 @@
         "JobType": "RGP.Automation.Worker.Jobs.SetComputerExtensionAttributeJob, RGP.Automation.Worker",
         "TriggerName": "SetComputerExtensionAttributeTrigger",
         "TriggerGroup": "SetComputerExtensionAttributeTriggerGroup",
-        "CronExpression": "* 0/5 * ? * * *"
+        "CronExpression": "0 0/5 * ? * * *"
       }
     ]
   }

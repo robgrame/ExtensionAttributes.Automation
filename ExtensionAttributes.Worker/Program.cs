@@ -48,6 +48,8 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
                 Console.ForegroundColor = ConsoleColor.Blue;
                 Console.BackgroundColor = ConsoleColor.Black;
 
+                Console.WriteLine();
+                Console.WriteLine("------------------------------------------------------------------------------------------------------", Console.ForegroundColor = ConsoleColor.White);
                 Console.WriteLine("RGP Extension Attributes Automation Worker Service", Console.ForegroundColor = ConsoleColor.Green);
                 Console.WriteLine("Version: {0}", System.Diagnostics.FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly()?.Location ?? string.Empty).FileVersion?.ToString() ?? "Unknown version");
                 Console.WriteLine("Copyright (c) 2025 RGP Bytes");

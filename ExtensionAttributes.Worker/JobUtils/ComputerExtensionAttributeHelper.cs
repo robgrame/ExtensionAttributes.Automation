@@ -31,7 +31,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
             _logger = loggerFactory.CreateLogger("ComputerExtensionAttributeHelper");
 
             _logger.LogDebug("-----------------------------------------------------------------");
-            _logger.LogDebug("Starting Set Computer Extension Attribute Job...");
+            _logger.LogDebug("Starting Set Computer Extension Attribute Job ...................");
             _logger.LogDebug("-----------------------------------------------------------------");
             var appSettings = scope.ServiceProvider.GetRequiredService<IOptions<AppSettings>>().Value;
             var adHelperSettings = scope.ServiceProvider.GetRequiredService<IOptions<ADHelperSettings>>().Value;
@@ -43,11 +43,8 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
 
             await foreach (var directoryEntry in adHelper.GetDirectoryEntriesAsyncEnumerable(adHelperSettings.RootOrganizationaUnitDN))
             {
+                _logger.LogInformation(">>>>>>>>>> Processing Computer name: {ComputerName}", directoryEntry.Name);
                 
-                _logger.LogDebug("-----------------------------------------------------------------");
-                _logger.LogInformation("--------- Processing Computer name: {ComputerName} --------------", directoryEntry.Name);
-                _logger.LogDebug("_________________________________________________________________");
-
                 var rootOUName = adHelperSettings.RootOrganizationaUnitDN.Split(',')[0];
 
                 // Retrieve the rootOUName distinguishedName property
