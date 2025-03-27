@@ -14,10 +14,10 @@ namespace AD.Automation
 {
     public class ADHelper : IADHelper
     {
-        private readonly ILogger<ADHelper> _logger;
+        private readonly ILogger<IADHelper> _logger;
         private readonly ADHelperSettings _adHelperSettings;
 
-        public ADHelper(ILogger<ADHelper> logger, IOptions<ADHelperSettings> adHelperSettings)
+        public ADHelper(ILogger<IADHelper> logger, IOptions<ADHelperSettings> adHelperSettings)
         {
             _logger = logger;
             _adHelperSettings = adHelperSettings.Value;
