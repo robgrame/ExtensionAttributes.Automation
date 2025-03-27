@@ -38,9 +38,9 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
 
                 var exePath = Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location ?? string.Empty)!;
 
-                builder.Configuration.AddJsonFile(Path.Combine(exePath, "appsettings.json"), optional: true, reloadOnChange: true);
-                builder.Configuration.AddJsonFile(Path.Combine(exePath, "schedule.json"), optional: true, reloadOnChange: true);
-                builder.Configuration.AddJsonFile(Path.Combine(exePath, "logging.json"), optional: true, reloadOnChange: true);
+                builder.Configuration.AddJsonFile(Path.Combine(exePath, "appsettings.json"), optional: false, reloadOnChange: true);
+                builder.Configuration.AddJsonFile(Path.Combine(exePath, "schedule.json"), optional: false, reloadOnChange: true);
+                builder.Configuration.AddJsonFile(Path.Combine(exePath, "logging.json"), optional: false, reloadOnChange: true);
 
                 builder.Logging.ClearProviders();
 
