@@ -47,7 +47,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
                 // Set the default console color to blue
                 Console.ForegroundColor = ConsoleColor.Blue;
                 Console.BackgroundColor = ConsoleColor.Black;
-                Console.Clear();
+
                 Console.WriteLine("RGP Extension Attributes Automation Worker Service", Console.ForegroundColor = ConsoleColor.Green);
                 Console.WriteLine("Version: {0}", System.Diagnostics.FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly()?.Location ?? string.Empty).FileVersion?.ToString() ?? "Unknown version");
                 Console.WriteLine("Copyright (c) 2025 RGP Bytes");
@@ -335,7 +335,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
                     // Add Windows Service
                     builder.Services.AddWindowsService(options =>
                     {
-                        options.ServiceName = "RGP.WorkerService";
+                        options.ServiceName = "ExtensionAttributesWorkerSvc";
                     });
 
                     // Build the host

@@ -1,5 +1,5 @@
 @echo off
-set INSTALL_DESTINATION=%programfiles%\RGP\ExtensionAttributes.Worker
+set INSTALL_DESTINATION=R:\Release\RGP\ExtensionAttributesWorker
 set SERVICE_NAME=ExtensionAttributesWorkerSvc
 set SERVICE_DISPLAY_NAME=Extension Attributes WorkerSvc
 SET SERVICE_DESCRIPTION=Set Entra AD Device extensionAttributes based on AD Computer attributes
