@@ -122,7 +122,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
                             if (match.Success)
                             {
                                 expectedComputerAttributeValue = match.Value;
-                                _logger.LogDebug("Regex applied to ComputerAttribute: {CurrentComputerAttributeValue}", currentComputerAttributeValue);
+                                _logger.LogTrace("Regex applied to ComputerAttribute: {CurrentComputerAttributeValue}", currentComputerAttributeValue);
                                 _logger.LogDebug("Extracted value using Regex: {ExpectedComputerAttributeValue}", expectedComputerAttributeValue);
                             }
                             else
@@ -137,9 +137,9 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
                         }
 
                         // Check if the expectedComputerAttributeValue is null or empty
-                        _logger.LogDebug("Current ComputerAttribute value: {CurrentComputerAttributeValue}", currentComputerAttributeValue);
-                        _logger.LogDebug("Expected ComputerAttribute value: {ExpectedComputerAttributeValue}", expectedComputerAttributeValue);
-                        _logger.LogDebug("Comparing ExtensionAttribute value with expected ComputerAttribute value");
+                        _logger.LogTrace("Current ComputerAttribute value: {CurrentComputerAttributeValue}", currentComputerAttributeValue);
+                        _logger.LogTrace("Expected ComputerAttribute value: {ExpectedComputerAttributeValue}", expectedComputerAttributeValue);
+                        _logger.LogTrace("Comparing ExtensionAttribute value with expected ComputerAttribute value");
                         // Compare the ExtensionAttribute value with the extensionAttributeValue
                         if ((extensionAttributeValue != null && extensionAttributeValue != expectedComputerAttributeValue) || extensionAttributeValue == null)
                         {
@@ -150,7 +150,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
                                 _logger.LogTrace("ExtensionAttribute {ExtensionAttribute} updated successfully for Device ID: {DeviceId}", mapping.ExtensionAttribute, entraADDevice.Id);
 
                                 // Add the device to the updated devices collection
-                                _logger.LogDebug("Adding updated device to collection to be exported: {ComputerName}", directoryEntry.Name);
+                                _logger.LogTrace("Adding updated device to collection to be exported: {ComputerName}", directoryEntry.Name);
                                 UpdatedDevices.Add(Tuple.Create(entraADDevice, string.Join('-', mapping.ExtensionAttribute, expectedComputerAttributeValue)));
                                 _logger.LogTrace("Updated device added to collection to be exported: {ComputerName}", directoryEntry.Name);
                             }

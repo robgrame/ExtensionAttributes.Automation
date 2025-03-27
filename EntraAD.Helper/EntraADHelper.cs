@@ -281,7 +281,6 @@ namespace Azure.Automation
                 request.Content = new StringContent($"{{\"extensionAttributes\":{{\"{extensionAttributeName}\":\"{extensionAttributeValue}\"}}}}", System.Text.Encoding.UTF8, "application/json");
                 _logger.LogTrace("Request body added");
 
-
                 // Send the request
                 _logger.LogTrace("Sending the request");
                 var response = await _httpClient.SendAsync(request);
@@ -292,11 +291,7 @@ namespace Azure.Automation
                 if (response.IsSuccessStatusCode)
                 {
                     _logger.LogTrace("Response status code is success");
-                    _logger.LogTrace("Checking the {extensionAttribute} value for the device {id}", extensionAttributeName, deviceId);
-
-                    var attribute = await GetExtensionAttribute(deviceId, extensionAttributeName);
-                    _logger.LogTrace("Extension attribute {extensionAttribute} for device {deviceId} now has value {attribute} ", extensionAttributeName, deviceId, attribute);
-                    return attribute ?? string.Empty; // Ensure non-null return
+                    return extensionAttributeValue;
                 }
                 else
                 {
