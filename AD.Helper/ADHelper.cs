@@ -232,6 +232,84 @@ namespace AD.Automation
         }
 
         [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+        public async Task<DirectoryEntry> GetDirectoryEntryWithAttributesAsync(string distinguishedName, List<string> computerAttributes)
+        {
+
+            _logger.LogTrace("Getting Directory Entry from {distinguishedName}", distinguishedName);
+            // check if distinguishedName exists
+            if (string.IsNullOrWhiteSpace(distinguishedName))
+            {
+                _logger.LogError("Distinguished Name is null or empty. Cannot get Directory Entry.");
+                throw new ArgumentException("Distinguished Name cannot be null or empty.", nameof(distinguishedName));
+            }
+
+            // extract the computer name from the distinguished name
+            _logger.LogTrace("Extracting computer name from distinguished name {distinguishedName}", distinguishedName);
+            var computerName = distinguishedName.Split(',').FirstOrDefault(x => x.StartsWith("CN="))?.Substring(3);
+            _logger.LogTrace("Extracted computer name {computerName}", computerName);
+            if (string.IsNullOrWhiteSpace(computerName))
+            {
+                _logger.LogError("Computer name is null or empty. Cannot get Directory Entry.");
+                throw new ArgumentException("Computer name cannot be null or empty.", nameof(distinguishedName));
+            }
+
+            // extract the container name from the distinguished name
+            _logger.LogTrace("Extracting container name from distinguished name {distinguishedName}", distinguishedName);
+
+            // Skip the first element (CN=ComputerName) and join the rest to form the container name
+            // This assumes that the distinguished name is in the format CN=ComputerName,OU=ContainerName,DC=DomainName
+            // The container name is everything after the first comma
+            var fqdnContainerName = distinguishedName.Split(',').Skip(1).Aggregate(new StringBuilder(), (sb, s) =>
+            {
+                if (sb.Length > 0)
+                {
+                    sb.Append(",");
+                }
+                sb.Append(s);
+                return sb;
+            }).ToString();
+
+            _logger.LogTrace("Extracted container name {fqdnContainerName}", fqdnContainerName);
+
+            using var rootEntry = new DirectoryEntry($"LDAP://{fqdnContainerName}");
+            using var searcher = new DirectorySearcher(rootEntry)
+            {
+                SearchRoot = rootEntry,
+                Filter = $"(&(objectClass=computer)(cn={computerName}))",
+                SearchScope = SearchScope.Subtree,
+                Asynchronous = true,
+                ClientTimeout = TimeSpan.FromSeconds(_adHelperSettings.ClientTimeout),
+                PageSize = _adHelperSettings.PageSize
+            };
+
+
+            // add the attributes to load
+            foreach (var attribute in _adHelperSettings.AttributesToLoad)
+            {
+                searcher.PropertiesToLoad.Add(attribute);
+            }
+            // add the computer attributes to load
+            foreach (var computerAttribute in computerAttributes)
+            {
+                // check if the computer attribute is already in the attributes to load
+                if (!searcher.PropertiesToLoad.Contains(computerAttribute))
+                {
+                    _logger.LogTrace("Computer attribute {computerAttribute} is not in the attributes to load", computerAttribute);
+                }
+                else
+                {
+                    _logger.LogTrace("Computer attribute {computerAttribute} is already in the attributes to load", computerAttribute);
+                }
+                // if the computer attribute is not in the attributes to load, add it
+                _logger.LogTrace("Adding computer attribute {computerAttribute} to searcher", computerAttribute);
+                searcher.PropertiesToLoad.Add(computerAttribute);
+            }
+
+            var result = await Task.Run(() => searcher.FindOne());
+            return result?.GetDirectoryEntry() ?? throw new InvalidOperationException("Computer not found.");
+        }
+
+        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
         public async Task<string> GetComputerAttributeAsync(string distinguishedName, string computerAttribute)
         {
             _logger.LogTrace("Getting computer attribute from computer distinguished name {distinguishedName}", distinguishedName);

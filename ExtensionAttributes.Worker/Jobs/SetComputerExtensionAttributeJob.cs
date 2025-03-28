@@ -27,6 +27,17 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Jobs
         {
             await ComputerExtensionAttributeHelper.SetExtensionAttributeAsync(_serviceProvider);
 
+            // retrieve next fire time of the job from the context
+            var nextFireTime = context.NextFireTimeUtc?.DateTime;
+            if (nextFireTime.HasValue)
+            {
+                _logger.LogInformation("Job {jobname} next fire time {firetime}:", nameof(SetComputerExtensionAttributeJob), nextFireTime.Value);
+            }
+            else
+            {
+                _logger.LogWarning("Job {jobname} Next fire time is not available.", nameof(SetComputerExtensionAttributeJob));
+            }
+
         }
     }
 }

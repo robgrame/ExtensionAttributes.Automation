@@ -10,6 +10,7 @@ using Microsoft.Identity.Client;
 using System.Net.Http;
 using Azure.Automation.Config;
 using Microsoft.Extensions.Options;
+using System.Runtime.CompilerServices;
 
 
 
@@ -156,45 +157,30 @@ namespace Azure.Automation
         {
             _logger.LogTrace("GetExtensionAttribute Called");
 
-            // Convert the extensionAttribute parameter to the correct casing
-            // The extension attribute names are case-sensitive, so we need to ensure that the casing is correct
-            // For example, if the extension attribute is "extensionAttribute1", we need to convert it to "ExtensionAttribute1"
-            // The correct casing is to capitalize the first letter of the extension attribute name
-
-            // First convert the extension attribute name to lower case and then capitalize the first letter and the 10th letter
             string lowerCasedExtensionAttribute = extensionAttribute.ToLowerInvariant();
-            // Capitalize the first letter of the extension attribute name
             string correctCasingAttribute = char.ToUpperInvariant(lowerCasedExtensionAttribute[0]) + lowerCasedExtensionAttribute.Substring(1);
-            // Capitalize the 10th letter of the extension attribute name
             correctCasingAttribute = correctCasingAttribute.Substring(0, 9) + char.ToUpperInvariant(extensionAttribute[9]) + extensionAttribute.Substring(10);
             _logger.LogTrace("Extension attribute name {extensionAttribute} converted to {correctCasingAttribute}", extensionAttribute, correctCasingAttribute);
 
-
             try
-
             {
-                // Get the access token
                 _logger.LogTrace("Get the Access Token");
                 var token = await _authenticationHandler.GetAccessTokenAsync();
                 _logger.LogTrace("Access Token retrieved");
 
-                // Make the request to the Microsoft Graph API
                 _logger.LogTrace("Building the request to the Microsoft Graph API");
                 var request = new HttpRequestMessage(HttpMethod.Get, $"https://graph.microsoft.com/v1.0/devices/{deviceId}");
                 _logger.LogTrace("Request built");
 
-                // Add the access token to the request headers
                 _logger.LogTrace("Adding the access token to the request headers");
                 request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Token);
                 request.Headers.Add("ConsistencyLevel", "eventual");
                 _logger.LogTrace("Access token added to the request headers");
 
-                // Send the request
                 _logger.LogTrace("Sending the request");
                 var response = await _httpClient.SendAsync(request);
                 _logger.LogTrace("Request sent");
 
-                // Check the response status code
                 _logger.LogTrace("Checking the response status code");
                 if (response.IsSuccessStatusCode)
                 {
@@ -206,7 +192,6 @@ namespace Azure.Automation
                     _logger.LogTrace("Response content deserialized");
                     _logger.LogTrace("Returning the {extensionAttribute} value for the device {id}", extensionAttribute, deviceId);
 
-                    // retrieve the extension attribute value from the device object
                     if (device?.ExtensionAttributes == null)
                     {
                         _logger.LogError("Extension attributes are null for device {DeviceId}", deviceId);
@@ -242,7 +227,87 @@ namespace Azure.Automation
                 _logger.LogError(ex, "Error retrieving extension attribute {ExtensionAttribute} for device {DeviceId}", extensionAttribute, deviceId);
                 return null;
             }
+        }
 
+        public async Task<List<string?>> GetExtensionAttributes(string deviceId, List<string> extensionAttributes)
+        {
+            _logger.LogTrace("GetExtensionAttributes Called");
+
+            List<string> correctCasingAttributes = new List<string>();
+
+            foreach (string extensionAttribute in extensionAttributes)
+            {
+                string lowerCasedExtensionAttribute = extensionAttribute.ToLowerInvariant();
+                string correctCasingAttribute = char.ToUpperInvariant(lowerCasedExtensionAttribute[0]) + lowerCasedExtensionAttribute.Substring(1);
+                correctCasingAttribute = correctCasingAttribute.Substring(0, 9) + char.ToUpperInvariant(extensionAttribute[9]) + extensionAttribute.Substring(10);
+                _logger.LogTrace("Extension attribute name {extensionAttribute} converted to {correctCasingAttribute}", extensionAttribute, correctCasingAttribute);
+                correctCasingAttributes.Add(correctCasingAttribute);
+            }
+
+            try
+            {
+                _logger.LogTrace("Get the Access Token");
+                var token = await _authenticationHandler.GetAccessTokenAsync();
+                _logger.LogTrace("Access Token retrieved");
+
+                _logger.LogTrace("Building the request to the Microsoft Graph API");
+                var request = new HttpRequestMessage(HttpMethod.Get, $"https://graph.microsoft.com/v1.0/devices/{deviceId}");
+                _logger.LogTrace("Request built");
+
+                _logger.LogTrace("Adding the access token to the request headers");
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Token);
+                request.Headers.Add("ConsistencyLevel", "eventual");
+                _logger.LogTrace("Access token added to the request headers");
+
+                _logger.LogTrace("Sending the request");
+                var response = await _httpClient.SendAsync(request);
+                _logger.LogTrace("Request sent");
+
+                _logger.LogTrace("Checking the response status code");
+                if (response.IsSuccessStatusCode)
+                {
+                    _logger.LogTrace("Response status code is success");
+                    var content = await response.Content.ReadAsStringAsync();
+                    _logger.LogTrace("Response content retrieved");
+                    _logger.LogTrace("Deserializing the response content");
+                    var device = System.Text.Json.JsonSerializer.Deserialize<EntraADDevice>(content);
+                    _logger.LogTrace("Response content deserialized");
+                    _logger.LogTrace("Returning the extension attributes for the device {id}", deviceId);
+
+                    if (device?.ExtensionAttributes == null)
+                    {
+                        _logger.LogError("Extension attributes are null for device {DeviceId}", deviceId);
+                        return new List<string?>();
+                    }
+
+                    var extensionAttributeValuesList = device.ExtensionAttributes.GetType().GetProperties()
+                        .Where(p => correctCasingAttributes.Contains(p.Name))
+                        .Select(p => p.GetValue(device.ExtensionAttributes, null)?.ToString())
+                        .ToList();
+
+                    return extensionAttributeValuesList;
+                }
+                else
+                {
+                    _logger.LogError("Error retrieving extension attributes for device {DeviceId}", deviceId);
+                    return new List<string?>();
+                }
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogError(ex, "Error retrieving extension attributes for device {DeviceId}", deviceId);
+                return new List<string?>();
+            }
+            catch (ServiceException ex)
+            {
+                _logger.LogError(ex, "Error retrieving extension attributes for device {DeviceId}", deviceId);
+                return new List<string?>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving extension attributes for device {DeviceId}", deviceId);
+                return new List<string?>();
+            }
         }
 
 
@@ -250,43 +315,33 @@ namespace Azure.Automation
         {
             _logger.LogTrace("SetExtensionAttributeValue Called");
 
-            // Convert the extensionAttribute parameter to the correct casing
-            // The extension attribute names are case-sensitive, so we need to ensure that the casing is correct
-
             var lowerCasedExtensionAttribute = extensionAttributeName.ToLowerInvariant();
-            //Coapitalize the 10th letter of the extension attribute name
             var correctCasingAttribute = lowerCasedExtensionAttribute.Substring(0, 9) + char.ToUpperInvariant(extensionAttributeName[9]) + extensionAttributeName.Substring(10);
             _logger.LogTrace("Correct casing for extension attribute {extensionAttribute} is {correctCasingAttribute}", extensionAttributeName, correctCasingAttribute);
 
             try
             {
-                // Get the access token
                 _logger.LogTrace("Get the Access Token");
                 var token = await _authenticationHandler.GetAccessTokenAsync();
                 _logger.LogTrace("Access Token retrieved");
 
-                // Make the request to the Microsoft Graph API
                 _logger.LogTrace("Building the request to the Microsoft Graph API");
                 var request = new HttpRequestMessage(HttpMethod.Patch, $"https://graph.microsoft.com/v1.0/devices/{deviceId}");
                 _logger.LogTrace("Request {request} built", request.RequestUri);
 
-                // Add the access token to the request headers
                 _logger.LogTrace("Adding the access token to the request headers");
                 request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Token);
                 request.Headers.Add("ConsistencyLevel", "eventual");
                 _logger.LogTrace("Access token added to the request headers");
 
-                // Add the request body
                 _logger.LogTrace("Adding the request body");
                 request.Content = new StringContent($"{{\"extensionAttributes\":{{\"{extensionAttributeName}\":\"{extensionAttributeValue}\"}}}}", System.Text.Encoding.UTF8, "application/json");
                 _logger.LogTrace("Request body added");
 
-                // Send the request
                 _logger.LogTrace("Sending the request");
                 var response = await _httpClient.SendAsync(request);
                 _logger.LogTrace("Request sent");
 
-                // Check the response status code
                 _logger.LogTrace("Checking the response status code");
                 if (response.IsSuccessStatusCode)
                 {
@@ -297,7 +352,6 @@ namespace Azure.Automation
                 {
                     _logger.LogError("Error setting extension attribute {ExtensionAttribute} for device {DeviceId}", extensionAttributeName, deviceId);
                     return null;
-
                 }
             }
             catch (ServiceException ex)

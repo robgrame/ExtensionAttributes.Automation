@@ -37,6 +37,14 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
             var adHelperSettings = scope.ServiceProvider.GetRequiredService<IOptions<ADHelperSettings>>().Value;
             var entraADHelperSettings = scope.ServiceProvider.GetRequiredService<IOptions<EntraADHelperSettings>>().Value;
 
+            // retrieve in advance a list of extension attributes from ExtensionAttributeMappings
+            var extensionAttributes = appSettings.ExtensionAttributeMappings.Select(mapping => mapping.ExtensionAttribute).ToList();
+            _logger.LogDebug("ExtensionAttributes to be processed: {ExtensionAttributes}", string.Join(", ", extensionAttributes));
+
+            // retrieve in advance a list of computer attributes from ExtensionAttributeMappings
+            var computerAttributes = appSettings.ExtensionAttributeMappings.Select(mapping => mapping.ComputerAttribute).ToList();
+            _logger.LogDebug("ComputerAttributes to be processed: {ComputerAttributes}", string.Join(", ", computerAttributes));
+
             // Get the ADHelper and EntraADHelper instances
             var adHelper = scope.ServiceProvider.GetRequiredService<IADHelper>();
             var entraADHelper = scope.ServiceProvider.GetRequiredService<IEntraADHelper>();
@@ -73,8 +81,6 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
                 {
                     _logger.LogTrace("ExtensionAttributeMapping: {ExtensionAttributeMapping}", mapping.ToString());
                 }
-
-
 
                 var deviceName = directoryEntry.Properties["cn"].Value?.ToString();
                 if (string.IsNullOrEmpty(deviceName))

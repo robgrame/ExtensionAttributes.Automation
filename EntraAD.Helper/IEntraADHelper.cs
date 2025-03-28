@@ -7,6 +7,7 @@ namespace Azure.Automation
         Task<Device?> GetDeviceAsync(string deviceId);
         Task<Device?> GetDeviceByNameAsync(string deviceName);
         Task<string?> GetExtensionAttribute(string deviceId, string extensionAttribute);
+        Task<List<string?>> GetExtensionAttributes(string deviceId, List<string> extensionAttributes);
         Task<string?> GetDeviceHWId(string deviceId);
         Task<IEnumerable<string>> GetDeviceHWIdByComputerName(string computerName);
         Task<IEnumerable<Device>> GetDevicesWithSameHwId(string hardwareId);

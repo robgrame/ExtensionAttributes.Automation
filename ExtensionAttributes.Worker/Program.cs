@@ -45,7 +45,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
                 builder.Logging.ClearProviders();
 
                 // Set the default console color to blue
-                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.ForegroundColor = ConsoleColor.Green;
                 Console.BackgroundColor = ConsoleColor.Black;
 
                 Console.WriteLine();
@@ -204,10 +204,10 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
                 Log.Information("ClientSecret: {ClientSecret}", entraADHelperSettings?.ClientSecret == null ? "ClientSecret not provided" : "**********");
                 Log.Information("CertificateThumbprint: {CertificateThumbprint}", entraADHelperSettings?.CertificateThumbprint ?? "CertificateThumbprint not provided");
 
-                Log.Information("RootOrganizationaUnitDN: {RootOrganizationaUnitDN}", adHelperSettings.RootOrganizationaUnitDN == null ? "RootOrganizationaUnitDN not provided" : adHelperSettings.RootOrganizationaUnitDN);
+                Log.Information("RootOrganizationaUnitDN: {RootOrganizationaUnitDN}", adHelperSettings?.RootOrganizationaUnitDN == null ? "RootOrganizationaUnitDN not provided" : adHelperSettings.RootOrganizationaUnitDN);
 
                 Log.Information("ExtensionAttributeMappings: {ExtensionAttributeMappings}", string.Join(", ", settings.ExtensionAttributeMappings.Select(m => m.ToString())));
-                Log.Information("ExcludedOUs: {ExcludedOUs}", adHelperSettings.ExcludedOUs);
+                Log.Information("ExcludedOUs: {ExcludedOUs}", adHelperSettings?.ExcludedOUs);
                 Log.Information("ExportPath: {ExportPath}", settings.ExportPath);
                 Log.Information("ExportFileNamePrefix: {ExportFileNamePrefix}", settings.ExportFileNamePrefix);
 
