@@ -140,15 +140,22 @@ namespace Azure.Automation
                         requestConfiguration.QueryParameters.Select = _settings.AttributesToLoad ?? new[] {"id","deviceId","accountEnabled","approximateLastSignInDateTime","displayName","trustType"};
                         requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
                     });
+                
                 if (devices?.Value == null || devices.Value.Count == 0)
                 {
                     return null;
                 }
+
                 return devices.Value.FirstOrDefault();
             }
-            catch (ServiceException ex)
+            catch (AuthenticationFailedException ex)
             {
-                Console.WriteLine($"An error occurred retrieving Device directory object: {ex.Message}");
+                _logger.LogError(ex.Message, "Authentication failed while retrieving device {DeviceName}", deviceName);
+                throw new Exception("Authentication failed while retrieving device", ex);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving device {DeviceName}", deviceName);
                 return null;
             }
         }

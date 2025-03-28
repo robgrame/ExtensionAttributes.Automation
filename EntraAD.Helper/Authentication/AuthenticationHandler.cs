@@ -3,6 +3,7 @@ using Azure.Core;
 using Azure.Identity;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
 namespace Azure.Automation.Authentication
@@ -70,6 +71,11 @@ namespace Azure.Automation.Authentication
                 _tokenExpiration = accessToken.ExpiresOn.UtcDateTime;
 
                 return accessToken;
+            }
+            catch (CryptographicException ex)
+            {
+                _logger.LogError(ex, "Failed to access the certificate's private key: {Message}", ex.Message);
+                throw new AuthenticationFailedException("ClientCertificateCredential authentication failed: Keyset does not exist", ex);
             }
             catch (CredentialUnavailableException ex)
             {

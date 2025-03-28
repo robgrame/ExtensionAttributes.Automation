@@ -20,6 +20,8 @@ using System.Net;
 using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Graph.Drives.Item.Items.Item.Workbook.Functions.Cosh;
+using Microsoft.Kiota.Abstractions;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace RGP.ExtensionAttributes.Automation.WorkerSvc
 {
@@ -30,7 +32,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
 
             bool isService = false;
             bool isConsole = false;
-            bool isDevice = false;         
+            bool isDevice = false;
 
             try
             {
@@ -153,7 +155,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
                             Console.ForegroundColor = ConsoleColor.Blue;
                         }
                         else if (logoLines[i][j] == ' ')
-                        {                            
+                        {
                             Console.ForegroundColor = ConsoleColor.White;
                         }
                         else
@@ -206,9 +208,20 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
                 Log.Information("CertificateThumbprint: {CertificateThumbprint}", entraADHelperSettings?.CertificateThumbprint ?? "CertificateThumbprint not provided");
 
                 Log.Information("RootOrganizationaUnitDN: {RootOrganizationaUnitDN}", adHelperSettings?.RootOrganizationaUnitDN == null ? "RootOrganizationaUnitDN not provided" : adHelperSettings.RootOrganizationaUnitDN);
+                Log.Information("AttributesToLoad: {AttributesToLoad}", string.Join(", ", entraADHelperSettings?.AttributesToLoad ?? Enumerable.Empty<string>()));
 
-                Log.Information("ExtensionAttributeMappings: {ExtensionAttributeMappings}", string.Join(", ", settings.ExtensionAttributeMappings.Select(m => m.ToString())));
-                Log.Information("ExcludedOUs: {ExcludedOUs}", adHelperSettings?.ExcludedOUs);
+                // print all ExtensionAttributeMappings one per line
+                foreach (var mapping in settings.ExtensionAttributeMappings)
+                {
+                    Log.Information("ExtensionAttributeMapping: {ExtensionAttributeMapping}", string.Join(", ", mapping.ExtensionAttribute, mapping.ComputerAttribute, mapping.Regex ?? mapping.Regex, "no regex"));
+
+                }
+
+                // print all excluded OUs one per line
+                foreach (var ou in adHelperSettings?.ExcludedOUs ?? Enumerable.Empty<string>())
+                {
+                    Log.Information("ExcludedOU: {ExcludedOU}", ou);
+                }
                 Log.Information("ExportPath: {ExportPath}", settings.ExportPath);
                 Log.Information("ExportFileNamePrefix: {ExportFileNamePrefix}", settings.ExportFileNamePrefix);
 
@@ -220,7 +233,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
                     client.Timeout = TimeSpan.FromSeconds(30);
 
                     client.BaseAddress = new Uri("https://graph.microsoft.com/v1.0/"); // Set the base address for the HttpClient              
-                
+
                 }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
                 {
                     Credentials = CredentialCache.DefaultCredentials
@@ -321,9 +334,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
                                 var cronExpression = jobConfig["CronExpression"];
                                 var cron = new CronExpression(cronExpression);
                                 var nextFireTime = cron.GetNextValidTimeAfter(DateTimeOffset.Now);
-
-                                var humanReadableSchedule = $"Next fire time for {jobName} is: {nextFireTime?.ToString("yyyy-MM-dd HH:mm:ss")}";
-                                Log.Information(humanReadableSchedule);
+                                Log.Information("Next fire time for {jobName} occurs at: {nextFireTime} ", jobName, nextFireTime?.ToString("yyyy-MM-dd HH:mm:ss"));
 
                             }
                         }
@@ -383,10 +394,35 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
                     return;
                 }
 
+
+            }
+            catch (ArgumentNullException ex)
+            {
+                Log.Error(ex, "Worker Service failed with ArgumentNullException: {exception}", ex.Message);
+            }
+            catch (FileNotFoundException ex)
+            {
+                Log.Error(ex, "Worker Service failed with FileNotFoundException: {exception}", ex.Message);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Log.Error(ex, "Worker Service failed with UnauthorizedAccessException: {exception}", ex.Message);
+            }
+            catch (TaskCanceledException ex)
+            {
+                Log.Warning(ex, "Worker Service was cancelled: {exception}", ex.Message);
+            }
+            catch (OperationCanceledException ex)
+            {
+                Log.Warning(ex, "Worker Service was cancelled: {exception}", ex.Message);
+            }
+            catch (System.Security.Cryptography.CryptographicException)
+            {
+                Log.Error("Worker Service failed with CryptographicException: {exception}", "Verify you have required permissions to access certificate private key. It generally implies to have admin privileges on running machine.");
             }
             catch (Exception ex)
             {
-                Log.Fatal(ex, "Worker Service terminated unexpectedly");
+                Log.Fatal(ex.Message, "Worker Service terminated unexpectedly");
             }
             finally
             {

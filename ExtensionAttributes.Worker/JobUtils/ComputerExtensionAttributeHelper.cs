@@ -212,8 +212,9 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, "An error occurred while setting extension attributes: {exception}", ex.Message);
-                Environment.Exit(1); // Terminate the application
+                _logger?.LogError("An error occurred while setting extension attributes: {exception}", ex.Message);
+                throw new Exception("An error occurred while setting extension attributes", ex);
+
             }
         }
 

@@ -7,7 +7,7 @@
         "Microsoft": "Warning",
         "System": "Warning",
         "Azure.Identity": "Information",
-        "Quartz": "Debug",
+        "Quartz": "Information",
         "ADHelper": "Information",
         "EntraADHelper": "Verbose"
 
