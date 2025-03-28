@@ -54,6 +54,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
                 Console.WriteLine("Version: {0}", System.Diagnostics.FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly()?.Location ?? string.Empty).FileVersion?.ToString() ?? "Unknown version");
                 Console.WriteLine("Copyright (c) 2025 RGP Bytes");
                 Console.WriteLine("All rights reserved.");
+                Console.WriteLine("This program is licensed under GPL 3.0");
                 Console.WriteLine();
                 Console.WriteLine("------------------------------------------------------------------------------------------------------", Console.ForegroundColor = ConsoleColor.White);
 
@@ -248,14 +249,15 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
                         if (certificate != null)
                         {
                             Log.Debug("Certificate found.");
+                            return new GraphServiceClient(new ClientCertificateCredential(entraADHelperSettings.TenantId, entraADHelperSettings.ClientId, certificate, options));
                         }
                         else
                         {
                             Log.Warning("Certificate not found.");
-                            return null;
+                            // break the application
+                            throw new Exception($"Certificate with thumbprint {entraADHelperSettings.CertificateThumbprint} not found.");
                         }
-         
-                        return new GraphServiceClient(new ClientCertificateCredential(entraADHelperSettings.TenantId, entraADHelperSettings.ClientId, certificate, options));
+
                     }
                 });
 
