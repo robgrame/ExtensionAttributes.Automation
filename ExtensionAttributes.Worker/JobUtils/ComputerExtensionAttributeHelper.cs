@@ -147,6 +147,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
                             _logger.LogTrace("Current ComputerAttribute value: {CurrentComputerAttributeValue}", currentComputerAttributeValue);
                             _logger.LogTrace("Expected ComputerAttribute value: {ExpectedComputerAttributeValue}", expectedComputerAttributeValue);
                             _logger.LogTrace("Comparing ExtensionAttribute value with expected ComputerAttribute value");
+
                             // Compare the ExtensionAttribute value with the extensionAttributeValue
                             if ((extensionAttributeValue != null && extensionAttributeValue != expectedComputerAttributeValue) || extensionAttributeValue == null)
                             {
