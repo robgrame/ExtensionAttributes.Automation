@@ -12,12 +12,12 @@
     },
     "QuartzJobs": [
       {
-        "JobName": "SetComputerExtensionAttributeJob",
-        "JobDescription": "Set computer ExtensionAttribute to the name of parent OU",
-        "JobGroup": "SetComputerExtensionAttributeGroup",
-        "JobType": "RGP.Automation.Worker.Jobs.SetComputerExtensionAttributeJob, RGP.Automation.Worker",
-        "TriggerName": "SetComputerExtensionAttributeTrigger",
-        "TriggerGroup": "SetComputerExtensionAttributeTriggerGroup",
+        "JobName": "SetUnifiedExtensionAttributeJob",
+        "JobDescription": "Set computer ExtensionAttribute based on unified configuration (AD and/or Intune)",
+        "JobGroup": "UnifiedExtensionAttributeGroup",
+        "JobType": "RGP.ExtensionAttributes.Automation.WorkerSvc.Jobs.SetUnifiedExtensionAttributeJob, ExtensionAttributes.WorkerSvc",
+        "TriggerName": "UnifiedExtensionAttributeTrigger",
+        "TriggerGroup": "UnifiedExtensionAttributeTriggerGroup",
         "CronExpression": "0 0/5 * ? * * *"
       }
     ]

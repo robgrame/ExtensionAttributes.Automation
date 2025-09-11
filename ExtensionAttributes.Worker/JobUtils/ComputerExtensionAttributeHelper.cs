@@ -1,227 +1,186 @@
-using RGP.ExtensionAttributes.Automation.WorkerSvc.Config;
-using AD.Automation;
-using AD.Helper.Config;
-using Azure.Automation;
-using Azure.Automation.Config;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Microsoft.Graph.Models;
-using Quartz.Util;
-using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
-
+using AD.Automation;
+using Azure.Automation;
+using RGP.ExtensionAttributes.Automation.WorkerSvc.Config;
+using System.Runtime.Versioning;
+using AD.Helper.Config;
 
 namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
 {
     public static class ComputerExtensionAttributeHelper
     {
-        // Static collection to keep track of updated devices
-        private static readonly ConcurrentBag<Tuple<Device, string>> UpdatedDevices = new ConcurrentBag<Tuple<Device, string>>();
-        private static ILogger? _logger;
-
-
-        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+        /// <summary>
+        /// Sets the extension attribute for all computers in the specified OU based on the parent OU name.
+        /// This method is specifically for Active Directory-based extension attributes.
+        /// </summary>
+        /// <param name="serviceProvider">The service provider to retrieve services from.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        [SupportedOSPlatform("windows")]
         public static async Task SetExtensionAttributeAsync(IServiceProvider serviceProvider)
+        {
+            var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
+            var logger = loggerFactory.CreateLogger(typeof(ComputerExtensionAttributeHelper));
+            var adHelper = serviceProvider.GetRequiredService<IADHelper>();
+            var entraADHelper = serviceProvider.GetRequiredService<IEntraADHelper>();
+            var appSettings = serviceProvider.GetRequiredService<IOptions<AppSettings>>().Value;
+            var adHelperSettings = serviceProvider.GetRequiredService<IOptions<ADHelperSettings>>().Value;
+
+            try
+            {
+                logger.LogInformation("Starting Legacy AD-only extension attribute processing");
+
+                // Filter only Active Directory mappings for backward compatibility
+                var adMappings = appSettings.ExtensionAttributeMappings
+                    .Where(m => m.DataSource == DataSourceType.ActiveDirectory)
+                    .ToList();
+
+                if (!adMappings.Any())
+                {
+                    logger.LogWarning("No Active Directory extension attribute mappings found");
+                    return;
+                }
+
+                logger.LogInformation("Found {MappingCount} Active Directory extension attribute mappings", adMappings.Count);
+
+                // Get all computers from the root OU
+                var computers = adHelper.GetDirectoryEntriesAsyncEnumerable(adHelperSettings.RootOrganizationaUnitDN);
+                
+                int processedComputers = 0;
+                int successfulUpdates = 0;
+
+                await foreach (var directoryEntry in computers)
+                {
+                    try
+                    {
+                        var computerName = directoryEntry.Name?.Replace("CN=", "");
+                        if (string.IsNullOrEmpty(computerName))
+                        {
+                            logger.LogWarning("Computer name is null or empty for {DirectoryEntry}", directoryEntry.Path);
+                            continue;
+                        }
+
+                        logger.LogTrace("Processing computer: {ComputerName}", computerName);
+
+                        // Get the Entra AD device by name
+                        var entraDevice = await entraADHelper.GetDeviceByNameAsync(computerName);
+                        if (entraDevice == null)
+                        {
+                            logger.LogWarning("Entra AD device not found for computer: {ComputerName}", computerName);
+                            continue;
+                        }
+
+                        logger.LogDebug("Found Entra AD device for computer: {ComputerName} with DeviceId: {DeviceId}", computerName, entraDevice.DeviceId);
+
+                        // Process each Active Directory mapping
+                        foreach (var mapping in adMappings)
+                        {
+                            await ProcessADMapping(directoryEntry, entraDevice, mapping, adHelper, entraADHelper, logger);
+                        }
+
+                        processedComputers++;
+                        successfulUpdates++;
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Error processing computer: {DirectoryEntry}", directoryEntry.Path);
+                    }
+                }
+
+                logger.LogInformation("Legacy AD processing completed. Processed {ProcessedComputers} computers with {SuccessfulUpdates} successful updates", 
+                    processedComputers, successfulUpdates);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error in SetExtensionAttributeAsync: {Error}", ex.Message);
+                throw;
+            }
+        }
+
+        private static async Task ProcessADMapping(
+            System.DirectoryServices.DirectoryEntry directoryEntry,
+            Microsoft.Graph.Models.Device entraDevice,
+            ExtensionAttributeMapping mapping,
+            IADHelper adHelper,
+            IEntraADHelper entraADHelper,
+            ILogger logger)
         {
             try
             {
-                // Retrieve settings from DI container
-                using var scope = serviceProvider.CreateScope();
-                var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
-                _logger = loggerFactory.CreateLogger("ComputerExtensionAttributeHelper");
+                var computerName = directoryEntry.Name?.Replace("CN=", "");
+                var distinguishedName = directoryEntry.Path;
 
-                _logger.LogDebug("-----------------------------------------------------------------");
-                _logger.LogDebug("Starting Set Computer Extension Attribute Job ...................");
-                _logger.LogDebug("-----------------------------------------------------------------");
-                var appSettings = scope.ServiceProvider.GetRequiredService<IOptions<AppSettings>>().Value;
-                var adHelperSettings = scope.ServiceProvider.GetRequiredService<IOptions<ADHelperSettings>>().Value;
-                var entraADHelperSettings = scope.ServiceProvider.GetRequiredService<IOptions<EntraADHelperSettings>>().Value;
+                logger.LogDebug("Retrieving SourceAttribute {SourceAttribute} for Computer name: {ComputerName}", mapping.SourceAttribute, computerName);
+                var currentComputerAttributeValue = await adHelper.GetComputerAttributeAsync(distinguishedName, mapping.SourceAttribute);
+                logger.LogInformation("Retrieved SourceAttribute {SourceAttribute} with value: {ComputerAttributeValue} for Computer name: {ComputerName}", mapping.SourceAttribute, currentComputerAttributeValue, computerName);
 
-                // retrieve in advance a list of extension attributes from ExtensionAttributeMappings
-                var extensionAttributes = appSettings.ExtensionAttributeMappings.Select(mapping => mapping.ExtensionAttribute).ToList();
-                _logger.LogDebug("ExtensionAttributes to be processed: {ExtensionAttributes}", string.Join(", ", extensionAttributes));
-
-                // retrieve in advance a list of computer attributes from ExtensionAttributeMappings
-                var computerAttributes = appSettings.ExtensionAttributeMappings.Select(mapping => mapping.ComputerAttribute).ToList();
-                _logger.LogDebug("ComputerAttributes to be processed: {ComputerAttributes}", string.Join(", ", computerAttributes));
-
-                // Get the ADHelper and EntraADHelper instances
-                var adHelper = scope.ServiceProvider.GetRequiredService<IADHelper>();
-                var entraADHelper = scope.ServiceProvider.GetRequiredService<IEntraADHelper>();
-
-                await foreach (var directoryEntry in adHelper.GetDirectoryEntriesAsyncEnumerable(adHelperSettings.RootOrganizationaUnitDN))
+                if (string.IsNullOrEmpty(currentComputerAttributeValue))
                 {
-                    _logger.LogInformation(">>>>>>>>>> Processing Computer name: {ComputerName}", directoryEntry.Name);
-
-                    var rootOUName = adHelperSettings.RootOrganizationaUnitDN.Split(',')[0];
-
-                    // Retrieve the rootOUName distinguishedName property
-                    var distinguishedName = directoryEntry.Properties["distinguishedName"].Value?.ToString();
-                    _logger.LogDebug("DistinguishedName: {distinguishedName}", distinguishedName);
-
-                    // Check if the distinguishedName is null or empty                  
-                    if (string.IsNullOrEmpty(distinguishedName))
-                    {
-                        _logger.LogWarning("DistinguishedName is null for {ComputerName}. Skipping to next computer object..", directoryEntry.Name);
-                        continue;
-                    }
-
-                    _logger.LogDebug("Computer DistinguishedName: {distinguishedName}", distinguishedName);
-
-                    // Check if the distinguishedName is part of the excluded OUs
-                    if (adHelperSettings.ExcludedOUs?.Any(excludedOU => distinguishedName.Contains(excludedOU, StringComparison.OrdinalIgnoreCase)) == true)
-                    {
-                        _logger.LogDebug("DistinguishedName {distinguishedName} is part of excluded OUs. Skipping...", distinguishedName);
-                        continue;
-                    }
-
-
-                    _logger.LogTrace("Processing Extension Attributes Mapping...");
-                    foreach (var mapping in appSettings.ExtensionAttributeMappings)
-                    {
-                        _logger.LogTrace("ExtensionAttributeMapping: {ExtensionAttributeMapping}", mapping.ToString());
-                    }
-
-                    var deviceName = directoryEntry.Properties["cn"].Value?.ToString();
-                    if (string.IsNullOrEmpty(deviceName))
-                    {
-                        _logger.LogWarning("Computer name is null for {DistinguishedName}. Skipping to next computer object..", distinguishedName);
-                        continue;
-                    }
-
-                    // Retrieve the Entra AD Device by name
-                    _logger.LogDebug("Getting Entra AD Device for Computer name: {ComputerName}", deviceName);
-                    var entraADDevice = await entraADHelper.GetDeviceByNameAsync(deviceName);
-
-                    if (entraADDevice != null && entraADDevice.Id != null)
-                    {
-                        _logger.LogDebug("Entra AD Device {ComputerName} has Entra Device ID: {DeviceId}", entraADDevice.DisplayName, entraADDevice.Id);
-                        // Retrieve the ExtensionAttribute mapping object
-                        foreach (var mapping in appSettings.ExtensionAttributeMappings)
-                        {
-                            _logger.LogDebug("Retrieving ExtensionAttribute {ExtensionAttribute} for Computer name: {ComputerName}", mapping.ExtensionAttribute, deviceName);
-                            var extensionAttributeValue = await entraADHelper.GetExtensionAttribute(entraADDevice.Id, mapping.ExtensionAttribute);
-                            _logger.LogInformation("Retrieved extensionAttribute {extensionAttribute} with value: {ExtensionAttributeValue} for computer name {computername}", mapping.ExtensionAttribute, extensionAttributeValue, deviceName);
-
-                            _logger.LogDebug("Checking if ExtensionAttribute {ExtensionAttribute} needs to be updated for Computer name: {ComputerName}", mapping.ExtensionAttribute, deviceName);
-
-                            _logger.LogDebug("Retrieving ComputerAttribute {ComputerAttribute} for Computer name: {ComputerName}", mapping.ComputerAttribute, deviceName);
-                            var currentComputerAttributeValue = await adHelper.GetComputerAttributeAsync(distinguishedName, mapping.ComputerAttribute);
-                            _logger.LogInformation("Retrieved ComputerAttribute {ComputerAttribute} with value: {ComputerAttributeValue} for Computer name: {ComputerName}", mapping.ComputerAttribute, currentComputerAttributeValue, deviceName);
-
-                            // Check if the currentComputerAttributeValue is null or empty
-                            if (string.IsNullOrWhiteSpace(currentComputerAttributeValue))
-                            {
-                                _logger.LogWarning("ComputerAttribute {ComputerAttribute} is null or empty for {ComputerName}. Skip processing {extensionAttribute}", mapping.ComputerAttribute, directoryEntry.Name, mapping.ExtensionAttribute);
-                                continue;
-                            }
-
-                            _logger.LogDebug("Retrieved Computer attribute {ComputerAttribute} with value: {ComputerAttributeValue}", mapping.ComputerAttribute, currentComputerAttributeValue);
-
-                            string? expectedComputerAttributeValue = null;
-                            //applying regex if it exists to ComputerAttribute
-                            if (!string.IsNullOrWhiteSpace(mapping.Regex))
-                            {
-                                _logger.LogTrace("Applying regex {regex} to ComputerAttribute: {ComputerAttribute}", mapping.Regex, mapping.ComputerAttribute);
-                                var regex = new Regex(mapping.Regex);
-                                var match = regex.Match(currentComputerAttributeValue);
-                                if (match.Success)
-                                {
-                                    expectedComputerAttributeValue = match.Value;
-                                    _logger.LogTrace("Regex applied to ComputerAttribute: {CurrentComputerAttributeValue}", currentComputerAttributeValue);
-                                    _logger.LogDebug("Extracted value using Regex: {ExpectedComputerAttributeValue}", expectedComputerAttributeValue);
-                                }
-                                else
-                                {
-                                    _logger.LogWarning("Regex did not match any value in ComputerAttribute: {ComputerAttribute}", mapping.ComputerAttribute);
-                                }
-                            }
-                            else
-                            {
-                                _logger.LogDebug("No regex applied to ComputerAttribute: {ComputerAttribute}", mapping.ComputerAttribute);
-                                expectedComputerAttributeValue = currentComputerAttributeValue;
-                            }
-
-                            // Check if the expectedComputerAttributeValue is null or empty
-                            _logger.LogTrace("Current ComputerAttribute value: {CurrentComputerAttributeValue}", currentComputerAttributeValue);
-                            _logger.LogTrace("Expected ComputerAttribute value: {ExpectedComputerAttributeValue}", expectedComputerAttributeValue);
-                            _logger.LogTrace("Comparing ExtensionAttribute value with expected ComputerAttribute value");
-
-                            // Compare the ExtensionAttribute value with the extensionAttributeValue
-                            if ((extensionAttributeValue != null && extensionAttributeValue != expectedComputerAttributeValue) || extensionAttributeValue == null)
-                            {
-                                if (!string.IsNullOrEmpty(expectedComputerAttributeValue))
-                                {
-                                    _logger.LogDebug("Updating ExtensionAttribute value from {OldValue} to {NewValue}", extensionAttributeValue, expectedComputerAttributeValue);
-                                    await entraADHelper.SetExtensionAttributeValue(entraADDevice.Id, mapping.ExtensionAttribute, expectedComputerAttributeValue);
-                                    _logger.LogTrace("ExtensionAttribute {ExtensionAttribute} updated successfully for Device ID: {DeviceId}", mapping.ExtensionAttribute, entraADDevice.Id);
-
-                                    // Add the device to the updated devices collection
-                                    _logger.LogTrace("Adding updated device to collection to be exported: {ComputerName}", directoryEntry.Name);
-                                    UpdatedDevices.Add(Tuple.Create(entraADDevice, string.Join('-', mapping.ExtensionAttribute, expectedComputerAttributeValue)));
-                                    _logger.LogTrace("Updated device added to collection to be exported: {ComputerName}", directoryEntry.Name);
-                                }
-                                else
-                                {
-                                    _logger.LogWarning("Expected ComputerAttribute value is null or empty for {ComputerName}. Skipping update for {extensionAttribute}", directoryEntry.Name, mapping.ExtensionAttribute);
-                                }
-
-                            }
-                            else
-                            {
-                                _logger.LogDebug("No update needed for ExtensionAttribute {extensionAttribute}. Current value {currentExtensionAttributeValue} match expected value: {ExtensionAttributeValue}", mapping.ExtensionAttribute, extensionAttributeValue, expectedComputerAttributeValue);
-                            }
-
-                            _logger.LogDebug("########### ExtensionAttribute {ExtensionAttribute}|{expectedComputerAttributeValue} for Device ID: {DeviceId} | {DeviceName} completed ###########", mapping.ExtensionAttribute, expectedComputerAttributeValue, entraADDevice.Id, entraADDevice.DisplayName);
-                        }
-                    }
-
-
-                    _logger.LogDebug("-----------------------------------------------------------------");
-                    _logger.LogDebug("--------- ENDING Set Computer Extension Attribute Job -----------");
-                    _logger.LogDebug("_________________________________________________________________");
-
+                    logger.LogWarning("SourceAttribute {SourceAttribute} is null or empty for {ComputerName}. Using default value for {extensionAttribute}", 
+                        mapping.SourceAttribute, directoryEntry.Name, mapping.ExtensionAttribute);
+                    currentComputerAttributeValue = mapping.DefaultValue ?? string.Empty;
                 }
 
-                if (UpdatedDevices.Count > 0)
-                {
-                    _logger.LogInformation("Exporting updated devices:");
-                    foreach (var deviceInfo in UpdatedDevices)
-                    {
-                        var device = deviceInfo.Item1;
-                        var departmentOUName = deviceInfo.Item2;
-                        _logger.LogInformation($"Exporting Device ID: {device.Id}, Device Name: {device.DisplayName}, Department OU Name: {departmentOUName}");
-                    }
+                logger.LogDebug("Retrieved Computer attribute {SourceAttribute} with value: {ComputerAttributeValue}", mapping.SourceAttribute, currentComputerAttributeValue);
 
-                    var exportTask = await ExportHelper.ExportDevicesToCsvAsync(serviceProvider, UpdatedDevices, ExportHelper.GetCsvFileName(appSettings.ExportFileNamePrefix));
-                    if (exportTask)
+                string extractedValue = currentComputerAttributeValue;
+
+                // Apply regex if specified
+                if (!string.IsNullOrEmpty(mapping.Regex))
+                {
+                    logger.LogTrace("Applying regex {regex} to SourceAttribute: {SourceAttribute}", mapping.Regex, mapping.SourceAttribute);
+
+                    var regex = new Regex(mapping.Regex);
+                    var match = regex.Match(currentComputerAttributeValue ?? string.Empty);
+
+                    if (match.Success)
                     {
-                        _logger.LogDebug("Exported updated devices to CSV file successfully.");
-                        UpdatedDevices.Clear();
+                        extractedValue = match.Groups.Count > 1 ? match.Groups[1].Value : match.Value;
+                        logger.LogDebug("Regex matched. Extracted value: {ExtractedValue}", extractedValue);
                     }
                     else
                     {
-                        _logger.LogError("Failed to export updated devices to CSV file.");
+                        logger.LogWarning("Regex did not match any value in SourceAttribute: {SourceAttribute}", mapping.SourceAttribute);
+                        extractedValue = mapping.DefaultValue ?? string.Empty;
                     }
                 }
                 else
                 {
-                    _logger.LogInformation("No devices were updated.");
+                    logger.LogDebug("No regex applied to SourceAttribute: {SourceAttribute}", mapping.SourceAttribute);
                 }
 
+                // Get current extension attribute value
+                var currentExtensionAttributeValue = await entraADHelper.GetExtensionAttribute(entraDevice.DeviceId!, mapping.ExtensionAttribute);
+                logger.LogDebug("Current extension attribute value for {ExtensionAttribute}: {CurrentValue}", mapping.ExtensionAttribute, currentExtensionAttributeValue);
+
+                // Only update if values are different
+                if (!string.Equals(currentExtensionAttributeValue, extractedValue, StringComparison.OrdinalIgnoreCase))
+                {
+                    logger.LogInformation("Updating {ExtensionAttribute} for computer {ComputerName}: '{OldValue}' -> '{NewValue}'",
+                        mapping.ExtensionAttribute, computerName, currentExtensionAttributeValue ?? "null", extractedValue);
+
+                    var result = await entraADHelper.SetExtensionAttributeValue(entraDevice.DeviceId!, mapping.ExtensionAttribute, extractedValue);
+
+                    if (!string.IsNullOrEmpty(result))
+                    {
+                        logger.LogInformation("Successfully updated {ExtensionAttribute} for computer {ComputerName}", mapping.ExtensionAttribute, computerName);
+                    }
+                    else
+                    {
+                        logger.LogError("Failed to update {ExtensionAttribute} for computer {ComputerName}", mapping.ExtensionAttribute, computerName);
+                    }
+                }
+                else
+                {
+                    logger.LogDebug("No update needed for {ExtensionAttribute} on computer {ComputerName}. Values are the same.", mapping.ExtensionAttribute, computerName);
+                }
             }
             catch (Exception ex)
             {
-                _logger?.LogError("An error occurred while setting extension attributes: {exception}", ex.Message);
-                throw new Exception("An error occurred while setting extension attributes", ex);
-
+                logger.LogError(ex, "Error processing AD mapping for {ExtensionAttribute}: {Error}", mapping.ExtensionAttribute, ex.Message);
             }
-        }
-
-        public static IEnumerable<Tuple<Device, string>> GetUpdatedDevices()
-        {
-            return UpdatedDevices;
         }
     }
 }

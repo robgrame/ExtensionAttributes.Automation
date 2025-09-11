@@ -18,15 +18,5 @@ namespace Azure.Automation.Config
         public required string[] AttributesToLoad { get; set; } = new string[] {"cn","distinguishedName","operatingSystem","operatingSystemVersion" };
         public int PageSize { get; set; } = 1000;
         public int ClientTimeout { get; set; } = 60000;
-        public required string AttributeToSet { get; set; } = "extensionAttribute1";
-        public required List<ExtensionAttributeMapping> ExtensionAttributeMappings { get; set; }
-    }
-
-
-    public class ExtensionAttributeMapping
-    {
-        public required string ExtensionAttribute { get; set; }
-        public required string ComputerAttribute { get; set; }
-        public string? Regex { get; set; } // Nullable string for optional regex
     }
 }
