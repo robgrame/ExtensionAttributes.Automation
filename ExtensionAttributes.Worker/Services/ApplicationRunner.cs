@@ -71,19 +71,123 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
             {
                 var serviceProvider = builder.Services.BuildServiceProvider();
                 var logger = serviceProvider.GetRequiredService<ILogger<ApplicationRunner>>();
+                var appSettings = serviceProvider.GetRequiredService<IOptions<AppSettings>>().Value;
 
-                logger.LogInformation("Running Worker Service for device: {deviceName}", deviceName);
-                logger.LogError("Unfortunately this scenario is not yet implemented");
+                logger.LogInformation("Running in device-specific mode for device: {deviceName}", deviceName);
+
+                if (!OperatingSystem.IsWindows())
+                {
+                    logger.LogError("The extension attribute operations are only supported on Windows.");
+                    return 1;
+                }
+
+                if (string.IsNullOrWhiteSpace(deviceName))
+                {
+                    logger.LogError("Device name cannot be null or empty");
+                    return 1;
+                }
+
+                // Log configuration information
+                logger.LogInformation("Data Sources - ActiveDirectory: {EnableAD}, Intune: {EnableIntune}, Preferred: {Preferred}",
+                    appSettings.DataSources.EnableActiveDirectory, 
+                    appSettings.DataSources.EnableIntune, 
+                    appSettings.DataSources.PreferredDataSource);
+
+                logger.LogInformation("Extension Attribute Mappings configured: {MappingCount}", 
+                    appSettings.ExtensionAttributeMappings.Count);
+
+                // Process single device using unified helper
+                var unifiedHelper = serviceProvider.GetRequiredService<UnifiedExtensionAttributeHelper>();
                 
-                // TODO: Implement device-specific logic using the unified approach
-                // This could process extension attributes for a single device from either AD or Intune
-                await Task.CompletedTask;
+                logger.LogInformation("Processing extension attributes for single device: {DeviceName}", deviceName);
+                var processed = await unifiedHelper.ProcessSingleDeviceAsync(deviceName);
                 
-                return 1; // Return error code until implemented
+                if (processed)
+                {
+                    logger.LogInformation("? Successfully processed device: {DeviceName}", deviceName);
+                    
+                    // Show summary of what was processed
+                    var enabledMappings = appSettings.ExtensionAttributeMappings.Where(m => 
+                        (m.DataSource == DataSourceType.ActiveDirectory && appSettings.DataSources.EnableActiveDirectory) ||
+                        (m.DataSource == DataSourceType.Intune && appSettings.DataSources.EnableIntune)
+                    ).ToList();
+
+                    logger.LogInformation("Processed {EnabledMappings} extension attribute mappings:", enabledMappings.Count);
+                    foreach (var mapping in enabledMappings)
+                    {
+                        logger.LogInformation("  • {ExtensionAttribute} <- {SourceAttribute} ({DataSource})", 
+                            mapping.ExtensionAttribute, mapping.SourceAttribute, mapping.DataSource);
+                    }
+
+                    return 0;
+                }
+                else
+                {
+                    logger.LogError("? Failed to process device: {DeviceName}", deviceName);
+                    logger.LogInformation("Possible reasons:");
+                    logger.LogInformation("  • Device not found in Entra AD");
+                    logger.LogInformation("  • Device not found in configured data sources (AD/Intune)");
+                    logger.LogInformation("  • Network connectivity issues");
+                    logger.LogInformation("  • Insufficient permissions");
+                    
+                    return 1;
+                }
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Device operation failed: {exception}", ex.Message);
+                Log.Error(ex, "Device operation failed for {deviceName}: {exception}", deviceName, ex.Message);
+                return 1;
+            }
+        }
+
+        /// <summary>
+        /// Run device processing by Entra AD Device ID
+        /// </summary>
+        /// <param name="builder">Host application builder</param>
+        /// <param name="deviceId">Entra AD Device ID</param>
+        /// <returns>Exit code</returns>
+        public static async Task<int> RunDeviceByIdAsync(HostApplicationBuilder builder, string deviceId)
+        {
+            try
+            {
+                var serviceProvider = builder.Services.BuildServiceProvider();
+                var logger = serviceProvider.GetRequiredService<ILogger<ApplicationRunner>>();
+                var appSettings = serviceProvider.GetRequiredService<IOptions<AppSettings>>().Value;
+
+                logger.LogInformation("Running in device-specific mode for device ID: {deviceId}", deviceId);
+
+                if (!OperatingSystem.IsWindows())
+                {
+                    logger.LogError("The extension attribute operations are only supported on Windows.");
+                    return 1;
+                }
+
+                if (string.IsNullOrWhiteSpace(deviceId))
+                {
+                    logger.LogError("Device ID cannot be null or empty");
+                    return 1;
+                }
+
+                // Process single device by ID using unified helper
+                var unifiedHelper = serviceProvider.GetRequiredService<UnifiedExtensionAttributeHelper>();
+                
+                logger.LogInformation("Processing extension attributes for device ID: {DeviceId}", deviceId);
+                var processed = await unifiedHelper.ProcessSingleDeviceByIdAsync(deviceId);
+                
+                if (processed)
+                {
+                    logger.LogInformation("? Successfully processed device with ID: {DeviceId}", deviceId);
+                    return 0;
+                }
+                else
+                {
+                    logger.LogError("? Failed to process device with ID: {DeviceId}", deviceId);
+                    return 1;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Device operation by ID failed for {deviceId}: {exception}", deviceId, ex.Message);
                 return 1;
             }
         }

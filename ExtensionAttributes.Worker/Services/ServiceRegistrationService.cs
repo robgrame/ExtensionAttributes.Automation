@@ -1,6 +1,8 @@
 using RGP.ExtensionAttributes.Automation.WorkerSvc.Config;
 using RGP.ExtensionAttributes.Automation.WorkerSvc.Jobs;
 using RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils;
+using RGP.ExtensionAttributes.Automation.WorkerSvc.HealthChecks;
+using RGP.ExtensionAttributes.Automation.WorkerSvc.Services;
 using AD.Helper.Config;
 using Azure.Automation.Config;
 using Azure.Automation.Intune.Config;
@@ -8,10 +10,14 @@ using AD.Automation;
 using Azure.Automation;
 using Azure.Automation.Authentication;
 using Azure.Automation.Intune;
+using Azure.Core;
 using Azure.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
 using Quartz;
 using Serilog;
@@ -29,24 +35,41 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
             builder.Services.Configure<ADHelperSettings>(builder.Configuration.GetSection(nameof(ADHelperSettings)));
             builder.Services.Configure<EntraADHelperSettings>(builder.Configuration.GetSection(nameof(EntraADHelperSettings)));
             builder.Services.Configure<IntuneHelperSettings>(builder.Configuration.GetSection(nameof(IntuneHelperSettings)));
+            builder.Services.Configure<NotificationSettings>(builder.Configuration.GetSection(nameof(NotificationSettings)));
 
             // Get configuration for service registration
             var entraADHelperSettings = builder.Configuration.GetSection(nameof(EntraADHelperSettings)).Get<EntraADHelperSettings>();
+            var appSettings = builder.Configuration.GetSection(nameof(AppSettings)).Get<AppSettings>();
             
             if (entraADHelperSettings == null)
             {
                 throw new InvalidOperationException("EntraADHelperSettings configuration is required.");
             }
 
-            // Register HTTP client for Graph API
+            if (appSettings == null)
+            {
+                throw new InvalidOperationException("AppSettings configuration is required.");
+            }
+
+            // Register HTTP client for Graph API with Polly resilience policies
             builder.Services.AddHttpClient("GraphAPI", client =>
             {
                 client.DefaultRequestHeaders.Add("Accept", "application/json");
-                client.Timeout = TimeSpan.FromSeconds(30);
+                client.Timeout = TimeSpan.FromSeconds(60); // Extended timeout for resilience
                 client.BaseAddress = new Uri("https://graph.microsoft.com/v1.0/");
-            }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
             {
                 Credentials = CredentialCache.DefaultCredentials
+            })
+            .ConfigureHttpMessageHandlerBuilder(handlerBuilder =>
+            {
+                // Add logging for HTTP requests
+                var loggerFactory = handlerBuilder.Services.GetRequiredService<ILoggerFactory>();
+                var logger = loggerFactory.CreateLogger("GraphAPI.HttpClient");
+                
+                // Apply Polly policies for resilience
+                handlerBuilder.AdditionalHandlers.Add(new PolicyHandler(PollyPolicies.GetGraphApiPolicy(logger)));
             });
 
             // Register GraphServiceClient
@@ -57,6 +80,8 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
                     AuthorityHost = AzureAuthorityHosts.AzurePublicCloud
                 };
 
+                TokenCredential credential;
+                
                 if (entraADHelperSettings.UseClientSecret)
                 {
                     if (string.IsNullOrWhiteSpace(entraADHelperSettings.ClientSecret))
@@ -64,11 +89,11 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
                         throw new InvalidOperationException("ClientSecret is required when UseClientSecret is true.");
                     }
 
-                    return new GraphServiceClient(new ClientSecretCredential(
+                    credential = new ClientSecretCredential(
                         entraADHelperSettings.TenantId, 
                         entraADHelperSettings.ClientId, 
                         entraADHelperSettings.ClientSecret, 
-                        options));
+                        options);
                 }
                 else
                 {
@@ -84,11 +109,11 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
                     if (certificate != null)
                     {
                         Log.Debug("Certificate found.");
-                        return new GraphServiceClient(new ClientCertificateCredential(
+                        credential = new ClientCertificateCredential(
                             entraADHelperSettings.TenantId, 
                             entraADHelperSettings.ClientId, 
                             certificate, 
-                            options));
+                            options);
                     }
                     else
                     {
@@ -96,6 +121,9 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
                         throw new InvalidOperationException($"Certificate with thumbprint {entraADHelperSettings.CertificateThumbprint} not found.");
                     }
                 }
+
+                // Create GraphServiceClient with TokenCredential
+                return new GraphServiceClient(credential);
             });
 
             // Register helper services
@@ -103,10 +131,33 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
             builder.Services.AddSingleton<IEntraADHelper, EntraADHelper>();
             builder.Services.AddSingleton<IIntuneHelper, IntuneHelper>();
             builder.Services.AddSingleton<AuthenticationHandler>();
+            builder.Services.AddSingleton<INotificationService, NotificationService>();
             
             // Register job utility services
             builder.Services.AddSingleton<IntuneExtensionAttributeHelper>();
             builder.Services.AddSingleton<UnifiedExtensionAttributeHelper>(); // NEW: Unified helper
+
+            // Register Health Checks based on enabled data sources
+            var healthChecksBuilder = builder.Services.AddHealthChecks()
+                .AddCheck<ConfigurationHealthCheck>("configuration", HealthStatus.Unhealthy, ["config"]);
+
+            // Add Entra AD health check (always needed for extension attributes)
+            healthChecksBuilder.AddCheck<EntraADHealthCheck>("entraad", HealthStatus.Unhealthy, ["entraad", "graph"]);
+
+            // Add Active Directory health check if enabled
+            if (appSettings.DataSources.EnableActiveDirectory)
+            {
+                healthChecksBuilder.AddCheck<ActiveDirectoryHealthCheck>("activedirectory", HealthStatus.Unhealthy, ["ad"]);
+            }
+
+            // Add Intune health check if enabled
+            if (appSettings.DataSources.EnableIntune)
+            {
+                healthChecksBuilder.AddCheck<IntuneHealthCheck>("intune", HealthStatus.Unhealthy, ["intune", "graph"]);
+            }
+
+            Log.Information("Registered health checks for enabled data sources - AD: {ADEnabled}, Intune: {IntuneEnabled}",
+                appSettings.DataSources.EnableActiveDirectory, appSettings.DataSources.EnableIntune);
         }
 
         public static void ConfigureQuartz(HostApplicationBuilder builder)
@@ -213,6 +264,27 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
             builder.Services.AddWindowsService(options =>
             {
                 options.ServiceName = "ExtensionAttributesWorkerSvc";
+            });
+        }
+    }
+
+    /// <summary>
+    /// HTTP message handler that applies Polly policies
+    /// </summary>
+    public class PolicyHandler : DelegatingHandler
+    {
+        private readonly Polly.IAsyncPolicy<HttpResponseMessage> _policy;
+
+        public PolicyHandler(Polly.IAsyncPolicy<HttpResponseMessage> policy)
+        {
+            _policy = policy ?? throw new ArgumentNullException(nameof(policy));
+        }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            return await _policy.ExecuteAsync(async () =>
+            {
+                return await base.SendAsync(request, cancellationToken);
             });
         }
     }

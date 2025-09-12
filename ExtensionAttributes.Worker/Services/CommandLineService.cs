@@ -2,22 +2,6 @@ using Microsoft.Extensions.Logging;
 
 namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
 {
-    public enum RunMode
-    {
-        Unknown,
-        Service,
-        Console,
-        Device,
-        Help
-    }
-
-    public class CommandLineOptions
-    {
-        public RunMode Mode { get; set; } = RunMode.Unknown;
-        public string? DeviceName { get; set; }
-        public bool ShowHelp { get; set; }
-    }
-
     public class CommandLineService
     {
         private readonly ILogger<CommandLineService> _logger;
@@ -31,37 +15,88 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
         {
             var options = new CommandLineOptions();
 
-            if (args == null || args.Length == 0)
+            for (int i = 0; i < args.Length; i++)
             {
-                options.ShowHelp = true;
-                return options;
+                var arg = args[i].ToLowerInvariant();
+
+                switch (arg)
+                {
+                    case "--help":
+                    case "-h":
+                        options.ShowHelp = true;
+                        break;
+
+                    case "--service":
+                    case "-s":
+                        options.Mode = RunMode.Service;
+                        break;
+
+                    case "--console":
+                    case "-c":
+                        options.Mode = RunMode.Console;
+                        break;
+
+                    case "--device":
+                    case "-d":
+                    case "--computername":
+                        options.Mode = RunMode.Device;
+                        // Get the next argument as device name
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith('-'))
+                        {
+                            options.DeviceName = args[i + 1];
+                            i++; // Skip next argument since we consumed it
+                        }
+                        else
+                        {
+                            _logger.LogError("Device name must be provided after --device option");
+                            options.ShowHelp = true;
+                        }
+                        break;
+
+                    case "--deviceid":
+                        options.Mode = RunMode.DeviceById;
+                        // Get the next argument as device ID
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith('-'))
+                        {
+                            options.DeviceId = args[i + 1];
+                            i++; // Skip next argument since we consumed it
+                        }
+                        else
+                        {
+                            _logger.LogError("Device ID must be provided after --deviceid option");
+                            options.ShowHelp = true;
+                        }
+                        break;
+
+                    default:
+                        // If we're in device mode and haven't set a device name yet, treat this as the device name
+                        if (options.Mode == RunMode.Device && string.IsNullOrEmpty(options.DeviceName) && !arg.StartsWith('-'))
+                        {
+                            options.DeviceName = args[i];
+                        }
+                        else if (options.Mode == RunMode.DeviceById && string.IsNullOrEmpty(options.DeviceId) && !arg.StartsWith('-'))
+                        {
+                            options.DeviceId = args[i];
+                        }
+                        else if (!arg.StartsWith('-'))
+                        {
+                            _logger.LogWarning("Unknown argument: {Argument}", args[i]);
+                        }
+                        break;
+                }
             }
 
-            var firstArg = args[0].ToLowerInvariant();
-
-            switch (firstArg)
+            // Validate device name/ID if in device mode
+            if (options.Mode == RunMode.Device && string.IsNullOrEmpty(options.DeviceName))
             {
-                case "--service" or "-s":
-                    options.Mode = RunMode.Service;
-                    break;
-                case "--console" or "-c":
-                    options.Mode = RunMode.Console;
-                    break;
-                case "--device" or "-d":
-                    options.Mode = RunMode.Device;
-                    if (args.Length > 1)
-                    {
-                        options.DeviceName = args[1];
-                    }
-                    break;
-                case "--help" or "-h":
-                    options.Mode = RunMode.Help;
-                    options.ShowHelp = true;
-                    break;
-                default:
-                    options.ShowHelp = true;
-                    _logger.LogWarning("Invalid argument: {Argument}", firstArg);
-                    break;
+                _logger.LogError("Device name is required when using --device option");
+                options.ShowHelp = true;
+            }
+
+            if (options.Mode == RunMode.DeviceById && string.IsNullOrEmpty(options.DeviceId))
+            {
+                _logger.LogError("Device ID is required when using --deviceid option");
+                options.ShowHelp = true;
             }
 
             return options;
@@ -72,11 +107,33 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine("Usage: ExtensionAttributes.WorkerSvc.exe [options]");
             Console.WriteLine("Options:");
-            Console.WriteLine("  --service, -s       Run the worker service as a Windows Service");
-            Console.WriteLine("  --console, -c       Run the worker service as a console application");
-            Console.WriteLine("  --device, -d -computername [hostname] [TBD]  Run for a specific device");
-            Console.WriteLine("  --help, -h         Show this help message");
-            Console.WriteLine("------------------------------------------------------------------------------------------------------");
+            Console.WriteLine("  --service, -s                    Run the worker service as a Windows Service");
+            Console.WriteLine("  --console, -c                    Run the worker service as a console application");
+            Console.WriteLine("  --device, -d [device-name]       Process extension attributes for a specific device by name");
+            Console.WriteLine("  --deviceid [device-id]           Process extension attributes for a specific device by Entra AD Device ID");
+            Console.WriteLine("  --help, -h                       Show this help message");
+            Console.WriteLine();
+            Console.WriteLine("Examples:");
+            Console.WriteLine("  ExtensionAttributes.WorkerSvc.exe --console");
+            Console.WriteLine("  ExtensionAttributes.WorkerSvc.exe --device DESKTOP-ABC123");
+            Console.WriteLine("  ExtensionAttributes.WorkerSvc.exe --deviceid \"abc123-def456-ghi789\"");
+            Console.WriteLine("  ExtensionAttributes.WorkerSvc.exe --service");
         }
+    }
+
+    public class CommandLineOptions
+    {
+        public RunMode Mode { get; set; } = RunMode.Console;
+        public bool ShowHelp { get; set; }
+        public string? DeviceName { get; set; }
+        public string? DeviceId { get; set; }
+    }
+
+    public enum RunMode
+    {
+        Console,
+        Service,
+        Device,
+        DeviceById
     }
 }

@@ -1,9 +1,12 @@
 ﻿# RGP Extension Attributes Automation Worker Service
 
-Una soluzione completa per l'automazione della gestione degli Extension Attributes di Microsoft Entra AD (Azure AD) basata su informazioni provenienti da Active Directory e/o Microsoft Intune.
+Una soluzione completa e altamente resiliente per l'automazione della gestione degli Extension Attributes di Microsoft Entra AD (Azure AD) basata su informazioni provenienti da Active Directory e/o Microsoft Intune.
 
 [![.NET](https://img.shields.io/badge/.NET-9.0-blue.svg)](https://dotnet.microsoft.com/download)
 [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Health Checks](https://img.shields.io/badge/Health%20Checks-✅-brightgreen.svg)]()
+[![Retry Logic](https://img.shields.io/badge/Polly%20Resilience-✅-brightgreen.svg)]()
+[![Notifications](https://img.shields.io/badge/Multi--Channel%20Alerts-✅-brightgreen.svg)]()
 
 ## 📋 Indice
 
@@ -13,20 +16,24 @@ Una soluzione completa per l'automazione della gestione degli Extension Attribut
 - [Installazione](#installazione)
 - [Configurazione](#configurazione)
 - [Utilizzo](#utilizzo)
+- [Health Checks e Monitoring](#health-checks-e-monitoring)
 - [Esempi di Configurazione](#esempi-di-configurazione)
 - [Proprietà Disponibili](#proprietà-disponibili)
+- [Resilienza e Retry Logic](#resilienza-e-retry-logic)
+- [Sistema di Notifiche](#sistema-di-notifiche)
 - [Risoluzione Problemi](#risoluzione-problemi)
+- [Testing e Debug](#testing-e-debug)
 - [Contribuire](#contribuire)
 - [Licenza](#licenza)
 
 ## 🔍 Panoramica
 
-Il **RGP Extension Attributes Automation Worker Service** è uno strumento potente che automatizza la sincronizzazione degli Extension Attributes di Microsoft Entra AD utilizzando dati provenienti da:
+Il **RGP Extension Attributes Automation Worker Service** è uno strumento potente e altamente resiliente che automatizza la sincronizzazione degli Extension Attributes di Microsoft Entra AD utilizzando dati provenienti da:
 
 - **Active Directory on-premise** - Attributi dei computer AD
 - **Microsoft Intune** - Informazioni hardware, software e compliance dei dispositivi gestiti
 
-La soluzione supporta espressioni regolari per l'estrazione di valori specifici, valori di default e una configurazione unificata che previene collisioni tra le diverse sorgenti dati.
+La soluzione supporta espressioni regolari per l'estrazione di valori specifici, valori di default, una configurazione unificata che previene collisioni, **monitoring completo**, **retry automatico**, e **notifiche multi-canale**.
 
 ## ✨ Caratteristiche Principali
 
@@ -44,47 +51,79 @@ La soluzione supporta espressioni regolari per l'estrazione di valori specifici,
 - **Valori di Default**: Fallback automatico quando i dati non sono disponibili  
 - **Elaborazione Concorrente**: Gestione efficiente di migliaia di dispositivi
 - **Logging Dettagliato**: Tracciamento completo delle operazioni con Serilog
+- **🆕 Elaborazione Dispositivo Singolo**: Debug e test su dispositivi specifici
 
 ### 🔄 **Modalità di Esecuzione**
 - **Windows Service**: Esecuzione automatica schedulata in background
 - **Console Application**: Esecuzione manuale per test e debug
-- **Device-Specific**: Elaborazione di singoli dispositivi (in sviluppo)
+- **🆕 Device-Specific**: Elaborazione di singoli dispositivi per troubleshooting
+- **🆕 Device by ID**: Elaborazione tramite Entra AD Device ID
 
 ### 📅 **Scheduling Flessibile**
 - **Quartz.NET Integration**: Scheduling avanzato con espressioni CRON
 - **Job Separati**: Possibilità di schedulare AD e Intune indipendentemente
 - **Job Unificato**: Processamento combinato di tutte le sorgenti
 
+### 🩺 **Health Checks e Monitoring**
+- **4 Health Checks integrati**: Configuration, Entra AD, Active Directory, Intune
+- **Monitoraggio real-time** dello stato dei servizi
+- **Metriche dettagliate** per ogni componente
+- **Alerting automatico** per problemi critici
+
+### 🔄 **Resilienza e Retry Logic**
+- **Polly Integration**: Retry automatico per errori transitori
+- **Circuit Breaker**: Prevenzione cascading failures
+- **Graph API Throttling**: Gestione intelligente dei rate limits Microsoft
+- **Exponential Backoff**: Ottimizzazione delle retry strategies
+
+### 📢 **Sistema di Notifiche Multi-Canale**
+- **Microsoft Teams**: Notifiche via webhook con card formattate
+- **Slack**: Messaggi strutturati con attachments
+- **Email**: Supporto SMTP/SendGrid/Azure Communication Services
+- **Alerting Intelligente**: Soglie configurabili per evitare spam
+
 ## 🏗️ Architettura
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Entra AD (Azure AD)                      │
-│                  ┌─────────────────────┐                    │
-│                  │  Extension          │                    │
-│                  │  Attributes 1-15    │                    │
-│                  └─────────────────────┘                    │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│              RGP Extension Attributes Worker                 │
-│  ┌─────────────────────────────────────────────────────────┐ │
-│  │           UnifiedExtensionAttributeHelper               │ │
-│  │  ┌─────────────────┐    ┌─────────────────────────────┐ │ │
-│  │  │   AD Helper     │    │      Intune Helper          │ │ │
-│  │  └─────────────────┘    └─────────────────────────────┘ │ │
-│  └─────────────────────────────────────────────────────────┘ │
-└─────────────────────┬───────────────┬───────────────────────┘
-                      │               │
-                      ▼               ▼
-        ┌─────────────────────┐  ┌─────────────────────┐
-        │   Active Directory  │  │  Microsoft Intune   │
-        │                     │  │                     │
-        │ • Computer Objects  │  │ • Device Info       │
-        │ • OU Structure      │  │ • Hardware Details  │
-        │ • Attributes        │  │ • Compliance State  │
-        └─────────────────────┘  └─────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           Entra AD (Azure AD)                                │
+│                       ┌─────────────────────┐                               │
+│                       │  Extension          │                               │
+│                       │  Attributes 1-15    │                               │
+│                       └─────────────────────┘                               │
+└─────────────────────────────────┬───────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    RGP Extension Attributes Worker                          │
+│  ┌─────────────────────────────────────────────────────────────────────────┐ │
+│  │                  UnifiedExtensionAttributeHelper                       │ │
+│  │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────────────────┐ │ │
+│  │  │   AD Helper     │ │  Intune Helper  │ │    Notification Service     │ │ │
+│  │  └─────────────────┘ └─────────────────┘ └─────────────────────────────┘ │ │
+│  └─────────────────────────────────────────────────────────────────────────┘ │
+│  ┌─────────────────────────────────────────────────────────────────────────┐ │
+│  │                        Health Checks                                   │ │
+│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐ │ │
+│  │  │    Config   │ │  Entra AD   │ │     AD      │ │      Intune         │ │ │
+│  │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────────────┘ │ │
+│  └─────────────────────────────────────────────────────────────────────────┘ │
+│  ┌─────────────────────────────────────────────────────────────────────────┐ │
+│  │                      Polly Resilience                                  │ │
+│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐ │ │
+│  │  │   Retry     │ │Circuit Break│ │   Timeout   │ │  Graph Throttling   │ │ │
+│  │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────────────┘ │ │
+│  └─────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────┬─────────────────┬─────────────────┬───────────────────┘
+                      │                 │                 │
+                      ▼                 ▼                 ▼
+        ┌─────────────────────┐ ┌─────────────────┐ ┌─────────────────────┐
+        │   Active Directory  │ │ Microsoft Intune│ │    Notifications    │
+        │                     │ │                 │ │                     │
+        │ • Computer Objects  │ │ • Device Info   │ │ • Teams Webhooks    │
+        │ • OU Structure      │ │ • Hardware Info │ │ • Slack Integration │
+        │ • Attributes        │ │ • Compliance    │ │ • Email SMTP        │
+        └─────────────────────┘ └─────────────────┘ └─────────────────────┘
 ```
 
 ## 🚀 Installazione
@@ -161,6 +200,25 @@ Ogni mapping è definito con questi parametri:
 | `useHardwareInfo` | boolean | Usa informazioni hardware dettagliate (Intune) | `false` |
 | `propertyPath` | string | Percorso per proprietà annidate (futuro uso) | `""` |
 
+### 🆕 Configurazione Notifiche
+
+```json
+{
+  "NotificationSettings": {
+    "EnableEmailNotifications": false,
+    "EnableTeamsNotifications": true,
+    "EnableSlackNotifications": false,
+    "DefaultEmailRecipient": "admin@company.com",
+    "TeamsWebhookUrl": "https://outlook.office.com/webhook/...",
+    "SlackWebhookUrl": "https://hooks.slack.com/services/...",
+    "SlackAlertChannel": "alerts",
+    "FailedDevicesThreshold": 10,
+    "ConsecutiveFailuresThreshold": 3,
+    "HealthCheckFailureThreshold": "00:05:00"
+  }
+}
+```
+
 ### Abilitazione Sorgenti Dati
 
 ```json
@@ -219,14 +277,17 @@ Ogni mapping è definito con questi parametri:
 ### Modalità Console (Test e Debug)
 
 ```bash
-# Esecuzione singola
+# Esecuzione singola di tutti i dispositivi
 ExtensionAttributes.WorkerSvc.exe --console
 
-# Mostra help
+# Mostra help completo
 ExtensionAttributes.WorkerSvc.exe --help
 
-# Per dispositivo specifico (in sviluppo)
+# 🆕 Elaborazione dispositivo specifico per nome
 ExtensionAttributes.WorkerSvc.exe --device COMPUTER-NAME
+
+# 🆕 Elaborazione dispositivo specifico per ID Entra AD
+ExtensionAttributes.WorkerSvc.exe --deviceid "abc123-def456-ghi789"
 ```
 
 ### Modalità Windows Service
@@ -249,6 +310,38 @@ La configurazione di scheduling è definita in `schedule.json`:
       "CronExpression": "0 0/5 * ? * * *"  // Ogni 5 minuti
     }
   ]
+}
+```
+
+## 🩺 Health Checks e Monitoring
+
+Il sistema include **4 health checks integrati** che monitorano continuamente lo stato di tutti i componenti:
+
+### Health Checks Disponibili
+
+| Health Check | Descrizione | Verifica |
+|--------------|-------------|----------|
+| **Configuration** | Valida la configurazione dell'applicazione | Mappings, sorgenti dati, parametri obbligatori |
+| **Entra AD** | Testa la connettività Graph API | Autenticazione, permessi, raggiungibilità |
+| **Active Directory** | Testa la connessione AD on-premise | Binding LDAP, accesso OU, credenziali |
+| **Intune** | Verifica l'accesso ai dispositivi gestiti | Graph API Intune, device management |
+
+### Stati Health Check
+
+- 🟢 **Healthy** - Servizio funzionante correttamente
+- 🟡 **Degraded** - Servizio funzionante con avvertimenti
+- 🔴 **Unhealthy** - Servizio non funzionante, richiede intervento
+
+### Metriche Incluse
+
+```json
+{
+  "status": "Healthy",
+  "timestamp": "2025-01-13T10:30:00Z",
+  "deviceCount": 1250,
+  "adEnabled": true,
+  "intuneEnabled": true,
+  "mappingCount": 10
 }
 ```
 
@@ -377,6 +470,90 @@ La configurazione di scheduling è definita in `schedule.json`:
 | `imei` | IMEI | `123456789012345` |
 | `subscribercarrier` | Operatore | `Vodafone IT` |
 
+## 🔄 Resilienza e Retry Logic
+
+Il sistema utilizza **Polly** per implementare strategie di resilienza avanzate:
+
+### Retry Policies
+
+#### 🔄 **HTTP Retry Policy**
+- **3 tentativi** con exponential backoff (2s, 4s, 8s)
+- **Gestione errori transienti**: 5XX, 408, 429
+- **Logging dettagliato** di ogni tentativo
+
+#### ⚡ **Graph API Throttling Policy**
+- **5 tentativi** con jitter per evitare thundering herd
+- **Rispetto Retry-After header** Microsoft
+- **Gestione intelligente** del rate limiting
+
+#### 🔌 **Circuit Breaker Policy**
+- **5 errori consecutivi** aprono il circuito
+- **30 secondi** di break duration
+- **Half-open testing** per recovery automatico
+
+#### ⏱️ **Timeout Policy**
+- **30 secondi** timeout di default
+- **60 secondi** per operazioni complesse
+- **Cancellation support** per cleanup
+
+### Esempio di Implementazione
+
+```csharp
+// Retry automatico con exponential backoff
+var result = await PollyPolicies.GetGraphApiPolicy(logger)
+    .ExecuteAsync(async () => 
+    {
+        return await graphClient.Devices.GetAsync();
+    });
+```
+
+## 📢 Sistema di Notifiche
+
+Il sistema di notifiche multi-canale invia automaticamente alert per eventi critici:
+
+### Canali Supportati
+
+#### 📧 **Email Notifications**
+- **SMTP nativo** con autenticazione
+- **Supporto SendGrid** e Azure Communication Services
+- **Template HTML** personalizzabili
+- **Attachment support** per report
+
+#### 🔔 **Microsoft Teams**
+- **Webhook integration** con Office 365
+- **Adaptive Cards** formattate
+- **Action buttons** per quick response
+- **Threaded conversations** per follow-up
+
+#### 💬 **Slack Integration**
+- **Incoming webhooks** con rich formatting
+- **Slack attachments** con colori e icone
+- **Channel routing** configurabile
+- **Bot persona** personalizzabile
+
+### Trigger di Notifica
+
+| Evento | Severità | Canali | Esempio |
+|--------|----------|--------|---------|
+| **Service Startup** | Info | Teams | "Extension Attributes Worker started successfully" |
+| **Health Check Failure** | Warning | Teams, Slack | "Active Directory health check failed" |
+| **Multiple Device Failures** | Critical | All Channels | "Failed to process 15+ devices" |
+| **Authentication Errors** | Critical | All Channels | "Graph API authentication expired" |
+| **Configuration Issues** | Error | Email, Teams | "Invalid extension attribute mapping detected" |
+
+### Esempio di Configurazione
+
+```json
+{
+  "NotificationSettings": {
+    "EnableTeamsNotifications": true,
+    "TeamsWebhookUrl": "https://outlook.office.com/webhook/abc123...",
+    "FailedDevicesThreshold": 10,
+    "ConsecutiveFailuresThreshold": 3
+  }
+}
+```
+
 ## 🔧 Risoluzione Problemi
 
 ### Problemi Comuni
@@ -399,32 +576,53 @@ Error: Failed to update extensionAttribute5 for device COMPUTER-NAME
 ```
 **Soluzione**: Verifica i permessi Graph API. Sono necessari i permessi `Device.ReadWrite.All`.
 
-#### 4. **Regex Non Funzionante**
+#### 4. **Graph API Throttling**
 ```
-Warning: Regex pattern 'XXX' did not match value 'YYY'
+Warning: Graph API throttled. Retry 3/5 after 8s (Retry-After header)
 ```
-**Soluzione**: Testa l'espressione regolare con un tool online come regex101.com.
+**Soluzione**: Il sistema gestisce automaticamente il throttling. Verifica che i `MaxConcurrentRequests` non siano troppo alti.
 
-### Logging e Debug
+#### 5. **Health Check Failures**
+```
+Error: Active Directory health check failed - unable to connect
+```
+**Soluzione**: Verifica connettività di rete, credenziali del service account, e firewall rules.
 
-Il servizio utilizza Serilog per logging strutturato. I log sono disponibili in:
+### 🆕 Debug Avanzato
 
-- **Console**: Durante l'esecuzione console
-- **File**: `C:\Temp\Automation\RGP.Automation.Worker.log` 
-- **Windows Event Log**: Quando eseguito come servizio
+#### Debug Singolo Dispositivo
+```bash
+# Debug per nome dispositivo
+ExtensionAttributes.WorkerSvc.exe --device "DESKTOP-ABC123"
 
-Livelli di logging configurabili in `logging.json`:
+# Debug per Device ID
+ExtensionAttributes.WorkerSvc.exe --deviceid "abc123-def456-ghi789"
+```
 
+#### Logging Configurabile
 ```json
 {
-  "MinimumLevel": {
-    "Default": "Information",    // Per produzione
-    "Override": {
-      "UnifiedExtensionAttributeHelper": "Debug"  // Per debug specifico
+  "Serilog": {
+    "MinimumLevel": {
+      "Default": "Information",
+      "Override": {
+        "UnifiedExtensionAttributeHelper": "Debug",
+        "PollyPolicies": "Information",
+        "NotificationService": "Debug"
+      }
     }
   }
 }
 ```
+
+### Logging e Debug
+
+Il servizio utilizza **Serilog** per logging strutturato con multiple destinazioni:
+
+- **Console**: Durante l'esecuzione console con colori
+- **File**: `C:\Temp\Automation\RGP.Automation.Worker.log` con rolling
+- **Windows Event Log**: Per esecuzione come servizio
+- **🆕 Structured JSON**: Per integrazione con log analyzers
 
 ### Permessi Richiesti
 
@@ -436,6 +634,48 @@ Livelli di logging configurabili in `logging.json`:
 #### Active Directory
 - **Lettura**: Accesso agli oggetti computer nell'OU specificata
 - **Esecuzione**: Account di servizio con diritti di accesso AD
+
+## 🧪 Testing e Debug
+
+### Test Automatici
+
+Il sistema include diverse strategie per testing e validazione:
+
+#### Unit Testing
+```bash
+# Esecuzione test unitari
+dotnet test
+
+# Test con coverage
+dotnet test --collect:"XPlat Code Coverage"
+```
+
+#### Integration Testing
+```bash
+# Test health checks
+curl http://localhost:5000/health
+
+# Test singolo dispositivo
+ExtensionAttributes.WorkerSvc.exe --device TEST-DEVICE
+```
+
+#### Performance Testing
+- **Load testing** con centinaia di dispositivi
+- **Memory profiling** per memory leaks
+- **Concurrency testing** per race conditions
+
+### Monitoring in Produzione
+
+#### Metriche Chiave
+- **Device Processing Rate**: dispositivi/minuto
+- **Success Rate**: percentuale di successo
+- **API Response Time**: latenza Graph API
+- **Health Check Status**: stato dei componenti
+
+#### Dashboard Recommendations
+- **Grafana + Prometheus** per metriche time-series
+- **Application Insights** per Azure environments
+- **Custom PowerBI** reports per business metrics
 
 ## 🤝 Contribuire
 
@@ -453,6 +693,26 @@ Contributi sono sempre benvenuti! Per contribuire:
 - Aggiungi test unitari per nuove funzionalità
 - Aggiorna la documentazione se necessario
 - Usa messaggi di commit descrittivi
+- **🆕 Includi health checks** per nuovi componenti
+- **🆕 Implementa retry logic** per operazioni remote
+
+### Development Setup
+
+```bash
+# Clone del repository
+git clone https://github.com/robgrame/ExtensionAttributes.Automation.git
+
+# Setup environment
+dotnet restore
+dotnet build
+
+# Esecuzione test
+dotnet test
+
+# Esecuzione locale
+cd ExtensionAttributes.Worker
+dotnet run -- --console
+```
 
 ## 📄 Licenza
 
@@ -470,24 +730,74 @@ Free Software Foundation, versione 3 della Licenza.
 - **Issues**: [GitHub Issues](https://github.com/robgrame/ExtensionAttributes.Automation/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/robgrame/ExtensionAttributes.Automation/discussions)
 - **Email**: support@rgpbytes.com
+- **🆕 Teams**: Notifiche automatiche per problemi critici
+- **🆕 Health Dashboard**: Monitoring real-time status
 
 ---
 
 ## 📈 Roadmap
 
-### Versione Corrente (v1.1)
-- ✅ Supporto Active Directory
-- ✅ Supporto Microsoft Intune  
-- ✅ Configurazione unificata
-- ✅ Windows Service
-- ✅ Scheduling con Quartz.NET
+### 🎯 Versione Corrente (v1.2)
+- ✅ **Supporto Active Directory** - Mappings completi da attributi AD
+- ✅ **Supporto Microsoft Intune** - Integration con device management
+- ✅ **Configurazione unificata** - Single config per tutti i mappings
+- ✅ **Windows Service** - Background processing schedulato
+- ✅ **Scheduling con Quartz.NET** - CRON expressions avanzate
+- ✅ **🆕 Health Checks** - Monitoring di tutti i componenti
+- ✅ **🆕 Retry Logic** - Resilienza con Polly policies  
+- ✅ **🆕 Multi-Channel Notifications** - Teams, Slack, Email
+- ✅ **🆕 Single Device Processing** - Debug e troubleshooting
 
-### Prossime Versioni
-- 🔄 **v1.2**: Elaborazione per singolo dispositivo
-- 🔄 **v1.3**: Interfaccia web di gestione
-- 🔄 **v1.4**: Supporto Azure DevOps integration
-- 🔄 **v1.5**: API REST per integrazione esterna
+### 🚀 Prossime Versioni
+
+#### **v1.3** - Web Dashboard & API
+- 🔄 **Web Dashboard** - Interfaccia monitoring real-time
+- 🔄 **REST API** - Endpoints per integrazione esterna
+- 🔄 **Health Check UI** - Dashboard health status
+- 🔄 **Configuration UI** - Web-based configuration management
+
+#### **v1.4** - Advanced Analytics
+- 🔄 **Advanced Reporting** - Excel, PDF, custom exports
+- 🔄 **Analytics Dashboard** - Trends e statistiche
+- 🔄 **Performance Metrics** - Deep insights sui performance
+- 🔄 **Audit Logging** - Compliance e change tracking
+
+#### **v1.5** - Enterprise Features
+- 🔄 **Azure DevOps Integration** - Pipeline automation
+- 🔄 **Configuration Management** - Environment-specific configs
+- 🔄 **Role-Based Access** - Security e permissions
+- 🔄 **Multi-Tenant Support** - Enterprise scalability
+
+#### **v2.0** - AI & Machine Learning
+- 🔄 **Predictive Analytics** - ML-based device insights
+- 🔄 **Anomaly Detection** - Automatic issue identification
+- 🔄 **Smart Recommendations** - AI-powered optimization
+- 🔄 **Natural Language** - Query devices with NLP
+
+### 🎯 Performance Targets (v1.3)
+
+| Metrica | Target | Attuale |
+|---------|--------|---------|
+| **Device Processing Rate** | 1000 devices/min | 500 devices/min |
+| **API Response Time** | <200ms | <300ms |
+| **Health Check Frequency** | 30s | 60s |
+| **Success Rate** | >99% | >95% |
+| **Retry Success Rate** | >90% | >85% |
 
 ---
 
-**Sviluppato con ❤️ da [RGP Bytes](https://rgpbytes.com)**
+## 🏆 Riconoscimenti
+
+Ringraziamenti speciali a:
+
+- **Microsoft Graph Team** - Per le eccellenti API e documentazione
+- **Polly Contributors** - Per la libreria di resilienza
+- **Quartz.NET Team** - Per il robust job scheduling
+- **Serilog Community** - Per il structured logging
+- **Open Source Community** - Per feedback e contributi
+
+---
+
+**Sviluppato con ❤️, ☕, e tanta pazienza da [RGP Bytes](https://rgpbytes.com)**
+
+*"Making device management automation reliable, one extension attribute at a time."*

@@ -59,6 +59,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
                     RunMode.Service => await ApplicationRunner.RunServiceAsync(builder),
                     RunMode.Console => await ApplicationRunner.RunConsoleAsync(builder, args),
                     RunMode.Device => await ApplicationRunner.RunDeviceAsync(builder, options.DeviceName ?? "Unknown"),
+                    RunMode.DeviceById => await ApplicationRunner.RunDeviceByIdAsync(builder, options.DeviceId ?? "Unknown"),
                     _ => 1
                 };
             }

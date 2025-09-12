@@ -64,6 +64,152 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
             return processedCount;
         }
 
+        /// <summary>
+        /// Process extension attributes for a single device by name
+        /// </summary>
+        /// <param name="deviceName">Name of the device to process</param>
+        /// <returns>True if device was found and processed, false otherwise</returns>
+        public async Task<bool> ProcessSingleDeviceAsync(string deviceName)
+        {
+            try
+            {
+                _logger.LogInformation("Starting single device processing for: {DeviceName}", deviceName);
+
+                if (string.IsNullOrWhiteSpace(deviceName))
+                {
+                    _logger.LogError("Device name cannot be null or empty");
+                    return false;
+                }
+
+                // Find the Entra AD device by name
+                var entraDevice = await _entraADHelper.GetDeviceByNameAsync(deviceName);
+                if (entraDevice == null)
+                {
+                    _logger.LogWarning("Entra AD device not found: {DeviceName}", deviceName);
+                    return false;
+                }
+
+                _logger.LogInformation("Found Entra AD device: {DeviceName} (DeviceId: {DeviceId})", 
+                    entraDevice.DisplayName, entraDevice.DeviceId);
+
+                // Process all extension attribute mappings for this device
+                var processed = await ProcessSingleDeviceExtensionAttributesAsync(entraDevice);
+                
+                if (processed)
+                {
+                    _logger.LogInformation("Successfully processed device: {DeviceName}", deviceName);
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to process device: {DeviceName}", deviceName);
+                }
+
+                return processed;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing single device {DeviceName}: {Error}", deviceName, ex.Message);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Process extension attributes for a single device by Entra AD Device ID
+        /// </summary>
+        /// <param name="deviceId">Entra AD Device ID</param>
+        /// <returns>True if device was found and processed, false otherwise</returns>
+        public async Task<bool> ProcessSingleDeviceByIdAsync(string deviceId)
+        {
+            try
+            {
+                _logger.LogInformation("Starting single device processing by ID: {DeviceId}", deviceId);
+
+                if (string.IsNullOrWhiteSpace(deviceId))
+                {
+                    _logger.LogError("Device ID cannot be null or empty");
+                    return false;
+                }
+
+                // Get the Entra AD device by ID
+                var entraDevice = await _entraADHelper.GetDeviceAsync(deviceId);
+                if (entraDevice == null)
+                {
+                    _logger.LogWarning("Entra AD device not found with ID: {DeviceId}", deviceId);
+                    return false;
+                }
+
+                _logger.LogInformation("Found Entra AD device: {DeviceName} (DeviceId: {DeviceId})", 
+                    entraDevice.DisplayName, entraDevice.DeviceId);
+
+                // Process all extension attribute mappings for this device
+                var processed = await ProcessSingleDeviceExtensionAttributesAsync(entraDevice);
+                
+                if (processed)
+                {
+                    _logger.LogInformation("Successfully processed device: {DeviceName}", entraDevice.DisplayName);
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to process device: {DeviceName}", entraDevice.DisplayName);
+                }
+
+                return processed;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing single device by ID {DeviceId}: {Error}", deviceId, ex.Message);
+                return false;
+            }
+        }
+
+        private async Task<bool> ProcessSingleDeviceExtensionAttributesAsync(Device entraDevice)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(entraDevice.DeviceId))
+                {
+                    _logger.LogWarning("Device has null DeviceId: {DisplayName}", entraDevice.DisplayName);
+                    return false;
+                }
+
+                _logger.LogDebug("Processing extension attributes for device: {DisplayName} (DeviceId: {DeviceId})", 
+                    entraDevice.DisplayName, entraDevice.DeviceId);
+
+                var successCount = 0;
+                var totalCount = 0;
+
+                // Process each extension attribute mapping
+                foreach (var mapping in _appSettings.ExtensionAttributeMappings)
+                {
+                    totalCount++;
+                    try
+                    {
+                        var success = await ProcessExtensionAttributeMapping(entraDevice, mapping);
+                        if (success)
+                        {
+                            successCount++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error processing mapping {ExtensionAttribute} for device {DeviceName}: {Error}",
+                            mapping.ExtensionAttribute, entraDevice.DisplayName, ex.Message);
+                    }
+                }
+
+                _logger.LogInformation("Processed {SuccessCount}/{TotalCount} extension attributes for device {DeviceName}",
+                    successCount, totalCount, entraDevice.DisplayName);
+
+                return successCount > 0; // Return true if at least one attribute was processed successfully
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing single device extension attributes for {DeviceName}: {Error}",
+                    entraDevice.DisplayName, ex.Message);
+                return false;
+            }
+        }
+
         private async Task ProcessDeviceAsync(Device entraDevice, SemaphoreSlim semaphore)
         {
             await semaphore.WaitAsync();
@@ -94,23 +240,24 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
             }
         }
 
-        private async Task ProcessExtensionAttributeMapping(Device entraDevice, ExtensionAttributeMapping mapping)
+        private async Task<bool> ProcessExtensionAttributeMapping(Device entraDevice, ExtensionAttributeMapping mapping)
         {
             try
             {
-                _logger.LogDebug("Processing mapping: {Mapping}", mapping.ToString());
+                _logger.LogDebug("Processing mapping: {Mapping} for device: {DeviceName}", 
+                    mapping.ToString(), entraDevice.DisplayName);
 
                 // Check if the data source is enabled
                 if (mapping.DataSource == DataSourceType.ActiveDirectory && !_appSettings.DataSources.EnableActiveDirectory)
                 {
                     _logger.LogDebug("Skipping AD mapping for {ExtensionAttribute} - AD disabled", mapping.ExtensionAttribute);
-                    return;
+                    return false;
                 }
 
                 if (mapping.DataSource == DataSourceType.Intune && !_appSettings.DataSources.EnableIntune)
                 {
                     _logger.LogDebug("Skipping Intune mapping for {ExtensionAttribute} - Intune disabled", mapping.ExtensionAttribute);
-                    return;
+                    return false;
                 }
 
                 // Get the current value from Entra AD
@@ -145,23 +292,27 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
                     {
                         _logger.LogInformation("Successfully updated {ExtensionAttribute} for device {DeviceName}", 
                             mapping.ExtensionAttribute, entraDevice.DisplayName);
+                        return true;
                     }
                     else
                     {
                         _logger.LogError("Failed to update {ExtensionAttribute} for device {DeviceName}", 
                             mapping.ExtensionAttribute, entraDevice.DisplayName);
+                        return false;
                     }
                 }
                 else
                 {
                     _logger.LogDebug("No update needed for {ExtensionAttribute} on device {DeviceName}. Current value: {CurrentValue}",
                         mapping.ExtensionAttribute, entraDevice.DisplayName, currentValue);
+                    return true; // No update needed, but not an error
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing extension attribute mapping {ExtensionAttribute} for device {DeviceName}: {Error}",
                     mapping.ExtensionAttribute, entraDevice.DisplayName, ex.Message);
+                return false;
             }
         }
 
