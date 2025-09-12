@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Builder;
 using Serilog;
 
 namespace RGP.ExtensionAttributes.Automation.WorkerSvc
@@ -12,33 +13,48 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
         {
             try
             {
-                // Create and configure the host builder
-                var builder = Host.CreateApplicationBuilder(args);
-                HostConfigurationService.ConfigureHost(builder);
-
-                // Create service provider for early services
-                using var earlyServiceProvider = builder.Services.BuildServiceProvider();
-                var consoleService = earlyServiceProvider.GetRequiredService<ConsoleDisplayService>();
+                // Parse command line arguments early to determine mode
+                var tempBuilder = Host.CreateApplicationBuilder(args);
+                HostConfigurationService.ConfigureHost(tempBuilder);
+                
+                using var earlyServiceProvider = tempBuilder.Services.BuildServiceProvider();
                 var commandLineService = earlyServiceProvider.GetRequiredService<CommandLineService>();
-                var configValidationService = earlyServiceProvider.GetRequiredService<ConfigurationValidationService>();
-
-                // Show application header and logo
-                consoleService.ShowApplicationHeader();
-                consoleService.ShowLogo();
-
-                // Parse command line arguments
                 var options = commandLineService.ParseArguments(args);
 
+                // Show help if requested
                 if (options.ShowHelp)
                 {
+                    var consoleService = earlyServiceProvider.GetRequiredService<ConsoleDisplayService>();
+                    consoleService.ShowApplicationHeader();
+                    consoleService.ShowLogo();
                     commandLineService.ShowUsage();
                     return 0;
                 }
+
+                // Handle web application mode separately
+                if (options.Mode == RunMode.WebApp)
+                {
+                    return await RunWebApplicationAsync(args);
+                }
+
+                // For all other modes, use regular Host builder
+                var builder = Host.CreateApplicationBuilder(args);
+                HostConfigurationService.ConfigureHost(builder);
+
+                // Create service provider for startup services
+                using var startupServiceProvider = builder.Services.BuildServiceProvider();
+                var consoleDisplayService = startupServiceProvider.GetRequiredService<ConsoleDisplayService>();
+                var configValidationService = startupServiceProvider.GetRequiredService<ConfigurationValidationService>();
+
+                // Show application header and logo
+                consoleDisplayService.ShowApplicationHeader();
+                consoleDisplayService.ShowLogo();
 
                 // Log startup information
                 Log.Information("------------------------------------------------------------------------------------------------------");
                 Log.Information("------------------------------------ STARTING WORKER SERVICE -----------------------------------------");
                 Log.Information("------------------------------------------------------------------------------------------------------");
+                Log.Information("Running in {Mode} mode", options.Mode);
 
                 // Validate configuration
                 if (!configValidationService.ValidateConfiguration(builder.Configuration))
@@ -101,6 +117,54 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc
             finally
             {
                 Log.CloseAndFlush();
+            }
+        }
+
+        private static async Task<int> RunWebApplicationAsync(string[] args)
+        {
+            try
+            {
+                var builder = WebApplication.CreateBuilder(args);
+
+                // Configure host services
+                HostConfigurationService.ConfigureWebHost(builder);
+
+                // Validate configuration
+                using var tempServiceProvider = builder.Services.BuildServiceProvider();
+                var configValidationService = tempServiceProvider.GetRequiredService<ConfigurationValidationService>();
+                
+                if (!configValidationService.ValidateConfiguration(builder.Configuration))
+                {
+                    Log.Error("Configuration validation failed. Please check your configuration files.");
+                    return 1;
+                }
+
+                Log.Information("------------------------------------------------------------------------------------------------------");
+                Log.Information("------------------------------------ STARTING WEB APPLICATION ------------------------------------");
+                Log.Information("------------------------------------------------------------------------------------------------------");
+                Log.Information("Running in WebApp mode");
+
+                // Register services for web application
+                ServiceRegistrationService.RegisterWebServices(builder);
+
+                Log.Information("Building Web Application");
+                var app = builder.Build();
+
+                // Configure the web application pipeline
+                ServiceRegistrationService.ConfigureWebApplication(app);
+
+                Log.Information("Starting Web Application on http://localhost:5000");
+                Log.Information("Dashboard available at: http://localhost:5000");
+                Log.Information("Health checks UI at: http://localhost:5000/health-ui");
+                Log.Information("API documentation at: http://localhost:5000/api-docs");
+
+                await app.RunAsync();
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Log.Fatal(ex, "Web application terminated unexpectedly: {exception}", ex.Message);
+                return 1;
             }
         }
     }

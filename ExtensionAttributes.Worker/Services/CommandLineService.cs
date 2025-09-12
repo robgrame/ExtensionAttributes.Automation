@@ -36,6 +36,12 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
                         options.Mode = RunMode.Console;
                         break;
 
+                    case "--web":
+                    case "-w":
+                    case "--dashboard":
+                        options.Mode = RunMode.WebApp;
+                        break;
+
                     case "--device":
                     case "-d":
                     case "--computername":
@@ -104,20 +110,28 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
 
         public void ShowUsage()
         {
-            Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine("Usage: ExtensionAttributes.WorkerSvc.exe [options]");
             Console.WriteLine("Options:");
             Console.WriteLine("  --service, -s                    Run the worker service as a Windows Service");
             Console.WriteLine("  --console, -c                    Run the worker service as a console application");
+            Console.WriteLine("  --web, -w, --dashboard           Run with web dashboard and REST API");
             Console.WriteLine("  --device, -d [device-name]       Process extension attributes for a specific device by name");
             Console.WriteLine("  --deviceid [device-id]           Process extension attributes for a specific device by Entra AD Device ID");
             Console.WriteLine("  --help, -h                       Show this help message");
             Console.WriteLine();
             Console.WriteLine("Examples:");
             Console.WriteLine("  ExtensionAttributes.WorkerSvc.exe --console");
+            Console.WriteLine("  ExtensionAttributes.WorkerSvc.exe --web");
             Console.WriteLine("  ExtensionAttributes.WorkerSvc.exe --device DESKTOP-ABC123");
             Console.WriteLine("  ExtensionAttributes.WorkerSvc.exe --deviceid \"abc123-def456-ghi789\"");
             Console.WriteLine("  ExtensionAttributes.WorkerSvc.exe --service");
+            Console.WriteLine();
+            Console.WriteLine("Web Dashboard:");
+            Console.WriteLine("  When using --web mode, the following endpoints are available:");
+            Console.WriteLine("  • Dashboard:          http://localhost:5000");
+            Console.WriteLine("  • Health Checks UI:   http://localhost:5000/health-ui");
+            Console.WriteLine("  • API Documentation:  http://localhost:5000/api-docs");
+            Console.WriteLine("  • REST API:           http://localhost:5000/api/status/*");
         }
     }
 
@@ -134,6 +148,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
         Console,
         Service,
         Device,
-        DeviceById
+        DeviceById,
+        WebApp
     }
 }

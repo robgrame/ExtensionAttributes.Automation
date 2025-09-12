@@ -1,88 +1,98 @@
 ﻿# RGP Extension Attributes Automation Worker Service
 
-Una soluzione completa e altamente resiliente per l'automazione della gestione degli Extension Attributes di Microsoft Entra AD (Azure AD) basata su informazioni provenienti da Active Directory e/o Microsoft Intune.
+A complete and highly resilient solution for automating Microsoft Entra AD (Azure AD) Extension Attributes management based on information from Active Directory and/or Microsoft Intune.
 
 [![.NET](https://img.shields.io/badge/.NET-9.0-blue.svg)](https://dotnet.microsoft.com/download)
 [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Health Checks](https://img.shields.io/badge/Health%20Checks-✅-brightgreen.svg)]()
 [![Retry Logic](https://img.shields.io/badge/Polly%20Resilience-✅-brightgreen.svg)]()
 [![Notifications](https://img.shields.io/badge/Multi--Channel%20Alerts-✅-brightgreen.svg)]()
+[![Web Dashboard](https://img.shields.io/badge/Web%20Dashboard-✅-brightgreen.svg)]()
 
-## 📋 Indice
+## 📋 Table of Contents
 
-- [Panoramica](#panoramica)
-- [Caratteristiche Principali](#caratteristiche-principali)
-- [Architettura](#architettura)
-- [Installazione](#installazione)
-- [Configurazione](#configurazione)
-- [Utilizzo](#utilizzo)
-- [Health Checks e Monitoring](#health-checks-e-monitoring)
-- [Esempi di Configurazione](#esempi-di-configurazione)
-- [Proprietà Disponibili](#proprietà-disponibili)
-- [Resilienza e Retry Logic](#resilienza-e-retry-logic)
-- [Sistema di Notifiche](#sistema-di-notifiche)
-- [Risoluzione Problemi](#risoluzione-problemi)
-- [Testing e Debug](#testing-e-debug)
-- [Contribuire](#contribuire)
-- [Licenza](#licenza)
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Architecture](#architecture)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [Web Dashboard & API](#web-dashboard--api)
+- [Health Checks and Monitoring](#health-checks-and-monitoring)
+- [Configuration Examples](#configuration-examples)
+- [Available Properties](#available-properties)
+- [Resilience and Retry Logic](#resilience-and-retry-logic)
+- [Multi-Channel Notifications](#multi-channel-notifications)
+- [Troubleshooting](#troubleshooting)
+- [Testing and Debug](#testing-and-debug)
+- [Contributing](#contributing)
+- [License](#license)
 
-## 🔍 Panoramica
+## 🔍 Overview
 
-Il **RGP Extension Attributes Automation Worker Service** è uno strumento potente e altamente resiliente che automatizza la sincronizzazione degli Extension Attributes di Microsoft Entra AD utilizzando dati provenienti da:
+The **RGP Extension Attributes Automation Worker Service** is a powerful and highly resilient tool that automates the synchronization of Microsoft Entra AD Extension Attributes using data from:
 
-- **Active Directory on-premise** - Attributi dei computer AD
-- **Microsoft Intune** - Informazioni hardware, software e compliance dei dispositivi gestiti
+- **Active Directory on-premise** - AD computer attributes
+- **Microsoft Intune** - Hardware, software, and compliance information from managed devices
 
-La soluzione supporta espressioni regolari per l'estrazione di valori specifici, valori di default, una configurazione unificata che previene collisioni, **monitoring completo**, **retry automatico**, e **notifiche multi-canale**.
+The solution supports regular expressions for extracting specific values, default values, a unified configuration that prevents collisions, **comprehensive monitoring**, **automatic retry**, **multi-channel notifications**, and a **web dashboard with REST API**.
 
-## ✨ Caratteristiche Principali
+## ✨ Key Features
 
-### 🎯 **Configurazione Unificata**
-- **Una sola sezione di configurazione** per tutti gli Extension Attributes
-- **Campo `dataSource`** per specificare se utilizzare Active Directory o Intune
-- **Prevenzione automatica delle collisioni** - impossibile configurare lo stesso Extension Attribute con più sorgenti
+### 🎯 **Unified Configuration**
+- **Single configuration section** for all Extension Attributes
+- **`dataSource` field** to specify whether to use Active Directory or Intune
+- **Automatic collision prevention** - impossible to configure the same Extension Attribute with multiple sources
 
-### 🚀 **Sorgenti Dati Multiple**
-- **Active Directory**: Utilizza attributi dei computer AD come OU, company, location, department
-- **Microsoft Intune**: Utilizza informazioni dei dispositivi come manufacturer, model, compliance state, storage info
+### 🚀 **Multiple Data Sources**
+- **Active Directory**: Uses AD computer attributes like OU, company, location, department
+- **Microsoft Intune**: Uses device information like manufacturer, model, compliance state, storage info
 
-### 🔧 **Elaborazione Avanzata**
-- **Espressioni Regolari**: Estrazione di parti specifiche dai valori degli attributi
-- **Valori di Default**: Fallback automatico quando i dati non sono disponibili  
-- **Elaborazione Concorrente**: Gestione efficiente di migliaia di dispositivi
-- **Logging Dettagliato**: Tracciamento completo delle operazioni con Serilog
-- **🆕 Elaborazione Dispositivo Singolo**: Debug e test su dispositivi specifici
+### 🔧 **Advanced Processing**
+- **Regular Expressions**: Extract specific parts from attribute values
+- **Default Values**: Automatic fallback when data is not available
+- **Concurrent Processing**: Efficient handling of thousands of devices
+- **Detailed Logging**: Complete operation tracking with Serilog
+- **🆕 Single Device Processing**: Debug and test on specific devices
 
-### 🔄 **Modalità di Esecuzione**
-- **Windows Service**: Esecuzione automatica schedulata in background
-- **Console Application**: Esecuzione manuale per test e debug
-- **🆕 Device-Specific**: Elaborazione di singoli dispositivi per troubleshooting
-- **🆕 Device by ID**: Elaborazione tramite Entra AD Device ID
+### 🔄 **Execution Modes**
+- **Windows Service**: Automatic scheduled execution in background
+- **Console Application**: Manual execution for testing and debugging
+- **🆕 Device-Specific**: Processing individual devices for troubleshooting
+- **🆕 Device by ID**: Processing via Entra AD Device ID
+- **🆕 Web Dashboard**: Interactive web interface with real-time monitoring
 
-### 📅 **Scheduling Flessibile**
-- **Quartz.NET Integration**: Scheduling avanzato con espressioni CRON
-- **Job Separati**: Possibilità di schedulare AD e Intune indipendentemente
-- **Job Unificato**: Processamento combinato di tutte le sorgenti
+### 📅 **Flexible Scheduling**
+- **Quartz.NET Integration**: Advanced scheduling with CRON expressions
+- **Separate Jobs**: Ability to schedule AD and Intune independently
+- **Unified Job**: Combined processing of all sources
 
-### 🩺 **Health Checks e Monitoring**
-- **4 Health Checks integrati**: Configuration, Entra AD, Active Directory, Intune
-- **Monitoraggio real-time** dello stato dei servizi
-- **Metriche dettagliate** per ogni componente
-- **Alerting automatico** per problemi critici
+### 🩺 **Health Checks and Monitoring**
+- **4 Integrated Health Checks**: Configuration, Entra AD, Active Directory, Intune
+- **Real-time monitoring** of service status
+- **Detailed metrics** for each component
+- **Automatic alerting** for critical issues
 
-### 🔄 **Resilienza e Retry Logic**
-- **Polly Integration**: Retry automatico per errori transitori
-- **Circuit Breaker**: Prevenzione cascading failures
-- **Graph API Throttling**: Gestione intelligente dei rate limits Microsoft
-- **Exponential Backoff**: Ottimizzazione delle retry strategies
+### 🔄 **Resilience and Retry Logic**
+- **Polly Integration**: Automatic retry for transient errors
+- **Circuit Breaker**: Prevention of cascading failures
+- **Graph API Throttling**: Intelligent handling of Microsoft rate limits
+- **Exponential Backoff**: Optimization of retry strategies
 
-### 📢 **Sistema di Notifiche Multi-Canale**
-- **Microsoft Teams**: Notifiche via webhook con card formattate
-- **Slack**: Messaggi strutturati con attachments
-- **Email**: Supporto SMTP/SendGrid/Azure Communication Services
-- **Alerting Intelligente**: Soglie configurabili per evitare spam
+### 📢 **Multi-Channel Notification System**
+- **Microsoft Teams**: Notifications via webhook with formatted cards
+- **Slack**: Structured messages with attachments
+- **Email**: Support for SMTP/SendGrid/Azure Communication Services
+- **Intelligent Alerting**: Configurable thresholds to avoid spam
 
-## 🏗️ Architettura
+### 🌐 **Web Dashboard & REST API**
+- **🆕 Interactive Dashboard**: Real-time monitoring and device processing
+- **🆕 REST API**: Comprehensive endpoints for system integration
+- **🆕 Health Checks UI**: Visual health status monitoring
+- **🆕 Swagger Documentation**: Complete API documentation
+- **🆕 Remote Device Processing**: Process devices via web interface
+
+## 🏗️ Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -96,6 +106,12 @@ La soluzione supporta espressioni regolari per l'estrazione di valori specifici,
                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    RGP Extension Attributes Worker                          │
+│  ┌─────────────────────────────────────────────────────────────────────────┐ │
+│  │               🌐 Web Dashboard & REST API                              │ │
+│  │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────────────────┐ │ │
+│  │  │  Status API     │ │   Health UI     │ │     Device Processing       │ │ │
+│  │  └─────────────────┘ └─────────────────┘ └─────────────────────────────┘ │ │
+│  └─────────────────────────────────────────────────────────────────────────┘ │
 │  ┌─────────────────────────────────────────────────────────────────────────┐ │
 │  │                  UnifiedExtensionAttributeHelper                       │ │
 │  │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────────────────┐ │ │
@@ -126,40 +142,40 @@ La soluzione supporta espressioni regolari per l'estrazione di valori specifici,
         └─────────────────────┘ └─────────────────┘ └─────────────────────┘
 ```
 
-## 🚀 Installazione
+## 🚀 Installation
 
-### Prerequisiti
+### Prerequisites
 
 - **.NET 9.0** Runtime/SDK
-- **Windows Server 2019** o superiore (per AD integration)
-- **Accesso Active Directory** (se utilizzato)
-- **Microsoft Graph API permissions** per Entra AD e Intune
-- **Certificato o Client Secret** per autenticazione Azure
+- **Windows Server 2019** or higher (for AD integration)
+- **Active Directory access** (if used)
+- **Microsoft Graph API permissions** for Entra AD and Intune
+- **Certificate or Client Secret** for Azure authentication
 
-### Installazione Rapida
+### Quick Installation
 
-1. **Clona il repository:**
+1. **Clone the repository:**
 ```bash
 git clone https://github.com/robgrame/ExtensionAttributes.Automation.git
 cd ExtensionAttributes.Automation
 ```
 
-2. **Compila la soluzione:**
+2. **Build the solution:**
 ```bash
 dotnet build --configuration Release
 ```
 
-3. **Installa come Windows Service:**
+3. **Install as Windows Service:**
 ```cmd
 cd ExtensionAttributes.Worker\bin\Release\net9.0
 ExtensionAttributes.WorkerSvc.exe --service
 ```
 
-## ⚙️ Configurazione
+## ⚙️ Configuration
 
-### Configurazione Base
+### Base Configuration
 
-Il file `appsettings.json` contiene tutte le configurazioni necessarie:
+The `appsettings.json` file contains all necessary configurations:
 
 ```json
 {
@@ -186,21 +202,21 @@ Il file `appsettings.json` contiene tutte le configurazioni necessarie:
 }
 ```
 
-### Configurazione Extension Attributes
+### Extension Attributes Configuration
 
-Ogni mapping è definito con questi parametri:
+Each mapping is defined with these parameters:
 
-| Parametro | Tipo | Descrizione | Esempio |
+| Parameter | Type | Description | Example |
 |-----------|------|-------------|---------|
-| `extensionAttribute` | string | Extension Attribute di destinazione (1-15) | `"extensionAttribute5"` |
-| `sourceAttribute` | string | Attributo sorgente (AD o Intune) | `"manufacturer"`, `"distinguishedName"` |
-| `dataSource` | enum | Sorgente dati: `"ActiveDirectory"` o `"Intune"` | `"Intune"` |
-| `regex` | string | Espressione regolare per estrazione valori | `"^(\\d+\\.\\d+)"` |
-| `defaultValue` | string | Valore di default se attributo vuoto | `"Unknown"` |
-| `useHardwareInfo` | boolean | Usa informazioni hardware dettagliate (Intune) | `false` |
-| `propertyPath` | string | Percorso per proprietà annidate (futuro uso) | `""` |
+| `extensionAttribute` | string | Target Extension Attribute (1-15) | `"extensionAttribute5"` |
+| `sourceAttribute` | string | Source attribute (AD or Intune) | `"manufacturer"`, `"distinguishedName"` |
+| `dataSource` | enum | Data source: `"ActiveDirectory"` or `"Intune"` | `"Intune"` |
+| `regex` | string | Regular expression for value extraction | `"^(\\d+\\.\\d+)"` |
+| `defaultValue` | string | Default value if attribute is empty | `"Unknown"` |
+| `useHardwareInfo` | boolean | Use detailed hardware information (Intune) | `false` |
+| `propertyPath` | string | Path for nested properties (future use) | `""` |
 
-### 🆕 Configurazione Notifiche
+### 🆕 Notification Configuration
 
 ```json
 {
@@ -219,19 +235,19 @@ Ogni mapping è definito con questi parametri:
 }
 ```
 
-### Abilitazione Sorgenti Dati
+### Data Sources Configuration
 
 ```json
 {
   "DataSources": {
-    "EnableActiveDirectory": true,    // Abilita mappings AD
-    "EnableIntune": true,            // Abilita mappings Intune
+    "EnableActiveDirectory": true,    // Enable AD mappings
+    "EnableIntune": true,            // Enable Intune mappings
     "PreferredDataSource": "Both"    // "ActiveDirectory", "Intune", "Both"
   }
 }
 ```
 
-### Autenticazione Azure
+### Azure Authentication
 
 ```json
 {
@@ -244,7 +260,7 @@ Ogni mapping è definito con questi parametri:
 }
 ```
 
-### Configurazione Active Directory
+### Active Directory Configuration
 
 ```json
 {
@@ -258,7 +274,7 @@ Ogni mapping è definito con questi parametri:
 }
 ```
 
-### Configurazione Intune
+### Intune Configuration
 
 ```json
 {
@@ -272,67 +288,148 @@ Ogni mapping è definito con questi parametri:
 }
 ```
 
-## 🎮 Utilizzo
+## 🎮 Usage
 
-### Modalità Console (Test e Debug)
+### Console Mode (Testing and Debug)
 
 ```bash
-# Esecuzione singola di tutti i dispositivi
+# Single execution of all devices
 ExtensionAttributes.WorkerSvc.exe --console
 
-# Mostra help completo
+# Show complete help
 ExtensionAttributes.WorkerSvc.exe --help
 
-# 🆕 Elaborazione dispositivo specifico per nome
+# 🆕 Process specific device by name
 ExtensionAttributes.WorkerSvc.exe --device COMPUTER-NAME
 
-# 🆕 Elaborazione dispositivo specifico per ID Entra AD
+# 🆕 Process specific device by Entra AD Device ID
 ExtensionAttributes.WorkerSvc.exe --deviceid "abc123-def456-ghi789"
+
+# 🆕 Start web dashboard mode
+ExtensionAttributes.WorkerSvc.exe --web
 ```
 
-### Modalità Windows Service
+### Windows Service Mode
 
 ```bash
-# Installa e avvia come servizio
+# Install and start as service
 ExtensionAttributes.WorkerSvc.exe --service
 ```
 
+### 🆕 Web Dashboard Mode
+
+```bash
+# Start web dashboard with API
+ExtensionAttributes.WorkerSvc.exe --web
+```
+
+The web dashboard will be available at:
+- **Main Dashboard**: http://localhost:5000
+- **Health Checks UI**: http://localhost:5000/health-ui
+- **API Documentation**: http://localhost:5000/api-docs
+
 ### Scheduling
 
-La configurazione di scheduling è definita in `schedule.json`:
+Scheduling configuration is defined in `schedule.json`:
 
 ```json
 {
   "QuartzJobs": [
     {
       "JobName": "SetUnifiedExtensionAttributeJob",
-      "JobDescription": "Elabora Extension Attributes da AD e Intune",
-      "CronExpression": "0 0/5 * ? * * *"  // Ogni 5 minuti
+      "JobDescription": "Process Extension Attributes from AD and Intune",
+      "CronExpression": "0 0/5 * ? * * *"  // Every 5 minutes
     }
   ]
 }
 ```
 
-## 🩺 Health Checks e Monitoring
+## 🌐 Web Dashboard & API
 
-Il sistema include **4 health checks integrati** che monitorano continuamente lo stato di tutti i componenti:
+The solution includes a comprehensive web dashboard and REST API for monitoring and managing the extension attributes automation.
 
-### Health Checks Disponibili
+### Dashboard Features
 
-| Health Check | Descrizione | Verifica |
-|--------------|-------------|----------|
-| **Configuration** | Valida la configurazione dell'applicazione | Mappings, sorgenti dati, parametri obbligatori |
-| **Entra AD** | Testa la connettività Graph API | Autenticazione, permessi, raggiungibilità |
-| **Active Directory** | Testa la connessione AD on-premise | Binding LDAP, accesso OU, credenziali |
-| **Intune** | Verifica l'accesso ai dispositivi gestiti | Graph API Intune, device management |
+- **🎛️ Real-time System Status**: Live health check monitoring
+- **📊 System Information**: Application metrics, memory usage, uptime
+- **⚙️ Configuration View**: Extension attribute mappings overview
+- **🔧 Device Processing**: Process individual devices via web interface
+- **📈 Health Checks Detail**: Detailed status of all components
+- **🔄 Auto-refresh**: Automatic updates every 30 seconds
 
-### Stati Health Check
+### REST API Endpoints
 
-- 🟢 **Healthy** - Servizio funzionante correttamente
-- 🟡 **Degraded** - Servizio funzionante con avvertimenti
-- 🔴 **Unhealthy** - Servizio non funzionante, richiede intervento
+#### System Status
+- `GET /api/status/health` - Get overall system health
+- `GET /api/status/info` - Get system information and statistics
+- `GET /api/status/mappings` - Get extension attribute mappings
 
-### Metriche Incluse
+#### Device Processing
+- `POST /api/status/process-device/{deviceName}` - Process device by name
+- `POST /api/status/process-device-by-id/{deviceId}` - Process device by ID
+
+#### Health Checks
+- `GET /health` - Health check endpoint (JSON format)
+- `GET /health-ui` - Visual health checks dashboard
+
+### API Response Examples
+
+**System Health Response:**
+```json
+{
+  "status": "Healthy",
+  "totalDuration": 245.67,
+  "timestamp": "2025-01-13T10:30:00Z",
+  "checks": [
+    {
+      "name": "configuration",
+      "status": "Healthy",
+      "duration": 12.34,
+      "description": "Configuration validation successful"
+    }
+  ]
+}
+```
+
+**Device Processing Response:**
+```json
+{
+  "deviceName": "DESKTOP-ABC123",
+  "processed": true,
+  "timestamp": "2025-01-13T10:30:00Z",
+  "message": "Device processed successfully"
+}
+```
+
+### Dashboard Screenshots
+
+The web dashboard provides:
+- **Color-coded health status** indicators
+- **Interactive device processing** forms
+- **Real-time metrics** with auto-refresh
+- **Responsive design** for mobile and desktop
+- **Professional styling** with Bootstrap 5
+
+## 🩺 Health Checks and Monitoring
+
+The system includes **4 integrated health checks** that continuously monitor the status of all components:
+
+### Available Health Checks
+
+| Health Check | Description | Verification |
+|--------------|-------------|--------------|
+| **Configuration** | Validates application configuration | Mappings, data sources, required parameters |
+| **Entra AD** | Tests Graph API connectivity | Authentication, permissions, reachability |
+| **Active Directory** | Tests AD on-premise connection | LDAP binding, OU access, credentials |
+| **Intune** | Verifies access to managed devices | Graph API Intune, device management |
+
+### Health Check States
+
+- 🟢 **Healthy** - Service functioning correctly
+- 🟡 **Degraded** - Service functioning with warnings
+- 🔴 **Unhealthy** - Service not functioning, requires intervention
+
+### Included Metrics
 
 ```json
 {
@@ -345,9 +442,9 @@ Il sistema include **4 health checks integrati** che monitorano continuamente lo
 }
 ```
 
-## 💡 Esempi di Configurazione
+## 💡 Configuration Examples
 
-### Esempio 1: Dipartimento da Active Directory OU
+### Example 1: Department from Active Directory OU
 
 ```json
 {
@@ -362,7 +459,7 @@ Il sistema include **4 health checks integrati** che monitorano continuamente lo
 **Input**: `CN=PC001,OU=IT,OU=Departments,DC=company,DC=com`  
 **Output**: `IT`
 
-### Esempio 2: Produttore da Intune
+### Example 2: Manufacturer from Intune
 
 ```json
 {
@@ -376,7 +473,7 @@ Il sistema include **4 health checks integrati** che monitorano continuamente lo
 **Input**: Device manufacturer from Intune  
 **Output**: `Dell Inc.`, `HP`, `Microsoft Corporation`
 
-### Esempio 3: Versione OS Formattata
+### Example 3: Formatted OS Version
 
 ```json
 {
@@ -391,7 +488,7 @@ Il sistema include **4 health checks integrati** che monitorano continuamente lo
 **Input**: `10.0.19045.3570`  
 **Output**: `10.0`
 
-### Esempio 4: Storage in GB
+### Example 4: Storage in GB
 
 ```json
 {
@@ -404,13 +501,13 @@ Il sistema include **4 health checks integrati** che monitorano continuamente lo
 
 **Output**: `256`, `512`, `1024` (GB)
 
-## 📊 Proprietà Disponibili
+## 📊 Available Properties
 
 ### Active Directory Properties
 
-| Proprietà | Descrizione | Esempio |
-|-----------|-------------|---------|
-| `distinguishedName` | DN completo del computer | `CN=PC001,OU=IT,DC=company,DC=com` |
+| Property | Description | Example |
+|----------|-------------|---------|
+| `distinguishedName` | Complete computer DN | `CN=PC001,OU=IT,DC=company,DC=com` |
 | `company` | Company attribute | `ACME Corporation` |
 | `department` | Department attribute | `IT Department` |
 | `location` | Location attribute | `Milan, Italy` |
@@ -418,88 +515,88 @@ Il sistema include **4 health checks integrati** che monitorano continuamente lo
 
 ### Intune Device Properties
 
-#### Informazioni Base
-| Proprietà | Descrizione | Esempio |
-|-----------|-------------|---------|
-| `devicename` | Nome dispositivo | `DESKTOP-ABC123` |
-| `manufacturer` | Produttore | `Dell Inc.`, `HP`, `Microsoft Corporation` |
-| `model` | Modello | `OptiPlex 7090`, `Surface Pro 8` |
-| `serialnumber` | Numero seriale | `ABC123DEF456` |
+#### Basic Information
+| Property | Description | Example |
+|----------|-------------|---------|
+| `devicename` | Device name | `DESKTOP-ABC123` |
+| `manufacturer` | Manufacturer | `Dell Inc.`, `HP`, `Microsoft Corporation` |
+| `model` | Model | `OptiPlex 7090`, `Surface Pro 8` |
+| `serialnumber` | Serial number | `ABC123DEF456` |
 
-#### Sistema Operativo  
-| Proprietà | Descrizione | Esempio |
-|-----------|-------------|---------|
+#### Operating System  
+| Property | Description | Example |
+|----------|-------------|---------|
 | `operatingsystem` | OS | `Windows` |
-| `osversion` | Versione OS | `10.0.19045.3570` |
+| `osversion` | OS version | `10.0.19045.3570` |
 
-#### Compliance e Gestione
-| Proprietà | Descrizione | Esempio |
-|-----------|-------------|---------|
-| `compliancestate` | Stato compliance | `Compliant`, `NonCompliant`, `Unknown` |
-| `manageddeviceownertype` | Tipo ownership | `Corporate`, `Personal` |
-| `managementagent` | Agente gestione | `MDM` |
+#### Compliance and Management
+| Property | Description | Example |
+|----------|-------------|---------|
+| `compliancestate` | Compliance state | `Compliant`, `NonCompliant`, `Unknown` |
+| `manageddeviceownertype` | Ownership type | `Corporate`, `Personal` |
+| `managementagent` | Management agent | `MDM` |
 
-#### Date e Sincronizzazione
-| Proprietà | Descrizione | Formato |
-|-----------|-------------|---------|
-| `lastsyncdate` | Data ultimo sync | `2025-01-01` |
-| `lastsynctime` | Ora ultimo sync | `14:30:15` |
-| `lastsyncfull` | Data/ora completa | `2025-01-01 14:30:15` |
-| `enrolleddate` | Data enrollment | `2024-12-15` |
+#### Date and Synchronization
+| Property | Description | Format |
+|----------|-------------|--------|
+| `lastsyncdate` | Last sync date | `2025-01-01` |
+| `lastsynctime` | Last sync time | `14:30:15` |
+| `lastsyncfull` | Complete date/time | `2025-01-01 14:30:15` |
+| `enrolleddate` | Enrollment date | `2024-12-15` |
 
 #### Storage
-| Proprietà | Descrizione | Esempio |
-|-----------|-------------|---------|
-| `totalstorage` | Storage totale formattato | `256.00 GB` |
-| `totalstoragegb` | Storage totale in GB | `256` |
-| `freestorage` | Storage libero formattato | `128.50 GB` |  
-| `freestoragegb` | Storage libero in GB | `128` |
+| Property | Description | Example |
+|----------|-------------|---------|
+| `totalstorage` | Formatted total storage | `256.00 GB` |
+| `totalstoragegb` | Total storage in GB | `256` |
+| `freestorage` | Formatted free storage | `128.50 GB` |  
+| `freestoragegb` | Free storage in GB | `128` |
 
-#### Identificatori
-| Proprietà | Descrizione | Esempio |
-|-----------|-------------|---------|
-| `deviceid` | ID dispositivo Intune | `abc123-def456-ghi789` |
-| `azureaddeviceid` | ID Entra AD | `xyz789-uvw456-rst123` |
-| `userprincipalname` | UPN utente | `user@company.com` |
+#### Identifiers
+| Property | Description | Example |
+|----------|-------------|---------|
+| `deviceid` | Intune device ID | `abc123-def456-ghi789` |
+| `azureaddeviceid` | Entra AD ID | `xyz789-uvw456-rst123` |
+| `userprincipalname` | User UPN | `user@company.com` |
 
-#### Rete e Telefonia
-| Proprietà | Descrizione | Esempio |
-|-----------|-------------|---------|
-| `phonenumber` | Numero telefono | `+39 123 456 7890` |
-| `wifimacaddress` | MAC WiFi | `AA:BB:CC:DD:EE:FF` |
+#### Network and Telephony
+| Property | Description | Example |
+|----------|-------------|---------|
+| `phonenumber` | Phone number | `+39 123 456 7890` |
+| `wifimacaddress` | WiFi MAC | `AA:BB:CC:DD:EE:FF` |
 | `imei` | IMEI | `123456789012345` |
-| `subscribercarrier` | Operatore | `Vodafone IT` |
+| `subscribercarrier` | Carrier | `Vodafone IT` |
 
-## 🔄 Resilienza e Retry Logic
+## 🔄 Resilience and Retry Logic
 
-Il sistema utilizza **Polly** per implementare strategie di resilienza avanzate:
+The system uses **Polly** to implement advanced resilience strategies:
 
 ### Retry Policies
 
 #### 🔄 **HTTP Retry Policy**
-- **3 tentativi** con exponential backoff (2s, 4s, 8s)
-- **Gestione errori transienti**: 5XX, 408, 429
-- **Logging dettagliato** di ogni tentativo
+- **3 attempts** with exponential backoff (2s, 4s, 8s)
+- **Transient error handling**: 5XX, 408, 429
+- **Detailed logging** of each attempt
 
 #### ⚡ **Graph API Throttling Policy**
-- **5 tentativi** con jitter per evitare thundering herd
-- **Rispetto Retry-After header** Microsoft
-- **Gestione intelligente** del rate limiting
+- **5 attempts** with jitter to avoid thundering herd
+- **Respect Retry-After header** from Microsoft
+- **Intelligent handling** of rate limiting
 
 #### 🔌 **Circuit Breaker Policy**
-- **5 errori consecutivi** aprono il circuito
-- **30 secondi** di break duration
-- **Half-open testing** per recovery automatico
+- **5 consecutive errors** open the circuit
+- **30 seconds** break duration
+- **Half-open testing** for automatic recovery
 
 #### ⏱️ **Timeout Policy**
-- **30 secondi** timeout di default
-- **60 secondi** per operazioni complesse
-- **Cancellation support** per cleanup
+- **30 seconds** default timeout
+- **60 seconds** for complex operations
+- **Cancellation support** for cleanup
 
-### Esempio di Implementazione
+### Implementation Example
 
 ```csharp
-// Retry automatico con exponential backoff
+// Automatic retry with exponential backoff
 var result = await PollyPolicies.GetGraphApiPolicy(logger)
     .ExecuteAsync(async () => 
     {
@@ -507,41 +604,41 @@ var result = await PollyPolicies.GetGraphApiPolicy(logger)
     });
 ```
 
-## 📢 Sistema di Notifiche
+## 📢 Multi-Channel Notifications
 
-Il sistema di notifiche multi-canale invia automaticamente alert per eventi critici:
+The multi-channel notification system automatically sends alerts for critical events:
 
-### Canali Supportati
+### Supported Channels
 
 #### 📧 **Email Notifications**
-- **SMTP nativo** con autenticazione
-- **Supporto SendGrid** e Azure Communication Services
-- **Template HTML** personalizzabili
-- **Attachment support** per report
+- **Native SMTP** with authentication
+- **SendGrid and Azure Communication Services** support
+- **Customizable HTML templates**
+- **Attachment support** for reports
 
 #### 🔔 **Microsoft Teams**
-- **Webhook integration** con Office 365
-- **Adaptive Cards** formattate
-- **Action buttons** per quick response
-- **Threaded conversations** per follow-up
+- **Webhook integration** with Office 365
+- **Formatted Adaptive Cards**
+- **Action buttons** for quick response
+- **Threaded conversations** for follow-up
 
 #### 💬 **Slack Integration**
-- **Incoming webhooks** con rich formatting
-- **Slack attachments** con colori e icone
-- **Channel routing** configurabile
-- **Bot persona** personalizzabile
+- **Incoming webhooks** with rich formatting
+- **Slack attachments** with colors and icons
+- **Configurable channel routing**
+- **Customizable bot persona**
 
-### Trigger di Notifica
+### Notification Triggers
 
-| Evento | Severità | Canali | Esempio |
-|--------|----------|--------|---------|
+| Event | Severity | Channels | Example |
+|-------|----------|----------|---------|
 | **Service Startup** | Info | Teams | "Extension Attributes Worker started successfully" |
 | **Health Check Failure** | Warning | Teams, Slack | "Active Directory health check failed" |
 | **Multiple Device Failures** | Critical | All Channels | "Failed to process 15+ devices" |
 | **Authentication Errors** | Critical | All Channels | "Graph API authentication expired" |
 | **Configuration Issues** | Error | Email, Teams | "Invalid extension attribute mapping detected" |
 
-### Esempio di Configurazione
+### Configuration Example
 
 ```json
 {
@@ -554,52 +651,55 @@ Il sistema di notifiche multi-canale invia automaticamente alert per eventi crit
 }
 ```
 
-## 🔧 Risoluzione Problemi
+## 🔧 Troubleshooting
 
-### Problemi Comuni
+### Common Issues
 
-#### 1. **Autenticazione Azure Fallita**
+#### 1. **Azure Authentication Failed**
 ```
 Error: Certificate with thumbprint XXX not found
 ```
-**Soluzione**: Verifica che il certificato sia installato nel LocalMachine store e che l'applicazione abbia i permessi per accedervi.
+**Solution**: Verify that the certificate is installed in the LocalMachine store and that the application has permissions to access it.
 
-#### 2. **Dispositivo Non Trovato in Intune**
+#### 2. **Device Not Found in Intune**
 ```
 Warning: No corresponding Intune device found for Entra device: COMPUTER-NAME
 ```
-**Soluzione**: Il dispositivo potrebbe non essere enrollato in Intune o avere un nome diverso. Verifica lo stato di enrollment.
+**Solution**: The device might not be enrolled in Intune or have a different name. Check enrollment status.
 
-#### 3. **Extension Attribute Non Aggiornato**
+#### 3. **Extension Attribute Not Updated**
 ```
 Error: Failed to update extensionAttribute5 for device COMPUTER-NAME
 ```
-**Soluzione**: Verifica i permessi Graph API. Sono necessari i permessi `Device.ReadWrite.All`.
+**Solution**: Verify Graph API permissions. Required permissions include `Device.ReadWrite.All`.
 
 #### 4. **Graph API Throttling**
 ```
 Warning: Graph API throttled. Retry 3/5 after 8s (Retry-After header)
 ```
-**Soluzione**: Il sistema gestisce automaticamente il throttling. Verifica che i `MaxConcurrentRequests` non siano troppo alti.
+**Solution**: The system handles throttling automatically. Verify that `MaxConcurrentRequests` are not too high.
 
 #### 5. **Health Check Failures**
 ```
 Error: Active Directory health check failed - unable to connect
 ```
-**Soluzione**: Verifica connettività di rete, credenziali del service account, e firewall rules.
+**Solution**: Verify network connectivity, service account credentials, and firewall rules.
 
-### 🆕 Debug Avanzato
+### 🆕 Advanced Debug
 
-#### Debug Singolo Dispositivo
+#### Single Device Debug
 ```bash
-# Debug per nome dispositivo
+# Debug by device name
 ExtensionAttributes.WorkerSvc.exe --device "DESKTOP-ABC123"
 
-# Debug per Device ID
+# Debug by Device ID
 ExtensionAttributes.WorkerSvc.exe --deviceid "abc123-def456-ghi789"
+
+# Start web dashboard for interactive debugging
+ExtensionAttributes.WorkerSvc.exe --web
 ```
 
-#### Logging Configurabile
+#### Configurable Logging
 ```json
 {
   "Serilog": {
@@ -615,38 +715,38 @@ ExtensionAttributes.WorkerSvc.exe --deviceid "abc123-def456-ghi789"
 }
 ```
 
-### Logging e Debug
+### Logging and Debug
 
-Il servizio utilizza **Serilog** per logging strutturato con multiple destinazioni:
+The service uses **Serilog** for structured logging with multiple destinations:
 
-- **Console**: Durante l'esecuzione console con colori
-- **File**: `C:\Temp\Automation\RGP.Automation.Worker.log` con rolling
-- **Windows Event Log**: Per esecuzione come servizio
-- **🆕 Structured JSON**: Per integrazione con log analyzers
+- **Console**: During console execution with colors
+- **File**: `C:\Temp\Automation\RGP.Automation.Worker.log` with rolling
+- **Windows Event Log**: When running as service
+- **🆕 Structured JSON**: For integration with log analyzers
 
-### Permessi Richiesti
+### Required Permissions
 
 #### Microsoft Graph API
-- `Device.Read.All` - Lettura dispositivi Entra AD  
-- `Device.ReadWrite.All` - Scrittura Extension Attributes
-- `DeviceManagementManagedDevices.Read.All` - Lettura dispositivi Intune
+- `Device.Read.All` - Read Entra AD devices
+- `Device.ReadWrite.All` - Write Extension Attributes
+- `DeviceManagementManagedDevices.Read.All` - Read Intune devices
 
 #### Active Directory
-- **Lettura**: Accesso agli oggetti computer nell'OU specificata
-- **Esecuzione**: Account di servizio con diritti di accesso AD
+- **Read**: Access to computer objects in specified OU
+- **Execute**: Service account with AD access rights
 
-## 🧪 Testing e Debug
+## 🧪 Testing and Debug
 
-### Test Automatici
+### Automated Testing
 
-Il sistema include diverse strategie per testing e validazione:
+The system includes various strategies for testing and validation:
 
 #### Unit Testing
 ```bash
-# Esecuzione test unitari
+# Run unit tests
 dotnet test
 
-# Test con coverage
+# Test with coverage
 dotnet test --collect:"XPlat Code Coverage"
 ```
 
@@ -655,118 +755,127 @@ dotnet test --collect:"XPlat Code Coverage"
 # Test health checks
 curl http://localhost:5000/health
 
-# Test singolo dispositivo
+# Test single device
 ExtensionAttributes.WorkerSvc.exe --device TEST-DEVICE
+
+# Test web dashboard
+ExtensionAttributes.WorkerSvc.exe --web
 ```
 
 #### Performance Testing
-- **Load testing** con centinaia di dispositivi
-- **Memory profiling** per memory leaks
-- **Concurrency testing** per race conditions
+- **Load testing** with hundreds of devices
+- **Memory profiling** for memory leaks
+- **Concurrency testing** for race conditions
 
-### Monitoring in Produzione
+### Production Monitoring
 
-#### Metriche Chiave
-- **Device Processing Rate**: dispositivi/minuto
-- **Success Rate**: percentuale di successo
-- **API Response Time**: latenza Graph API
-- **Health Check Status**: stato dei componenti
+#### Key Metrics
+- **Device Processing Rate**: devices/minute
+- **Success Rate**: percentage of success
+- **API Response Time**: Graph API latency
+- **Health Check Status**: component status
 
 #### Dashboard Recommendations
-- **Grafana + Prometheus** per metriche time-series
-- **Application Insights** per Azure environments
-- **Custom PowerBI** reports per business metrics
+- **Grafana + Prometheus** for time-series metrics
+- **Application Insights** for Azure environments
+- **Custom PowerBI** reports for business metrics
+- **🆕 Built-in Web Dashboard** for real-time monitoring
 
-## 🤝 Contribuire
+## 🤝 Contributing
 
-Contributi sono sempre benvenuti! Per contribuire:
+Contributions are always welcome! To contribute:
 
-1. **Fork** il repository
-2. **Crea** un branch per la tua feature (`git checkout -b feature/AmazingFeature`)
-3. **Commit** le modifiche (`git commit -m 'Add some AmazingFeature'`)
-4. **Push** al branch (`git push origin feature/AmazingFeature`)  
-5. **Apri** una Pull Request
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/AmazingFeature`)
+3. **Commit** your changes (`git commit -m 'Add some AmazingFeature'`)
+4. **Push** to the branch (`git push origin feature/AmazingFeature`)  
+5. **Open** a Pull Request
 
-### Linee Guida
+### Guidelines
 
-- Segui le convenzioni di coding C#/.NET
-- Aggiungi test unitari per nuove funzionalità
-- Aggiorna la documentazione se necessario
-- Usa messaggi di commit descrittivi
-- **🆕 Includi health checks** per nuovi componenti
-- **🆕 Implementa retry logic** per operazioni remote
+- Follow C#/.NET coding conventions
+- Add unit tests for new functionality
+- Update documentation if necessary
+- Use descriptive commit messages
+- **🆕 Include health checks** for new components
+- **🆕 Implement retry logic** for remote operations
+- **🆕 Add API endpoints** for new features when appropriate
 
 ### Development Setup
 
 ```bash
-# Clone del repository
+# Clone repository
 git clone https://github.com/robgrame/ExtensionAttributes.Automation.git
 
 # Setup environment
 dotnet restore
 dotnet build
 
-# Esecuzione test
+# Run tests
 dotnet test
 
-# Esecuzione locale
+# Local execution
 cd ExtensionAttributes.Worker
 dotnet run -- --console
+
+# Start web dashboard
+dotnet run -- --web
 ```
 
-## 📄 Licenza
+## 📄 License
 
-Questo progetto è distribuito sotto licenza GPL v3. Vedi il file `LICENSE` per dettagli completi.
+This project is distributed under GPL v3 license. See the `LICENSE` file for complete details.
 
 ```
 Copyright (c) 2025 RGP Bytes
-Questo programma è software libero: puoi redistribuirlo e/o modificarlo
-sotto i termini della GNU General Public License come pubblicata dalla
-Free Software Foundation, versione 3 della Licenza.
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, version 3 of the License.
 ```
 
-## 🆘 Supporto
+## 🆘 Support
 
 - **Issues**: [GitHub Issues](https://github.com/robgrame/ExtensionAttributes.Automation/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/robgrame/ExtensionAttributes.Automation/discussions)
 - **Email**: support@rgpbytes.com
-- **🆕 Teams**: Notifiche automatiche per problemi critici
-- **🆕 Health Dashboard**: Monitoring real-time status
+- **🆕 Teams**: Automatic notifications for critical issues
+- **🆕 Web Dashboard**: Real-time status monitoring
 
 ---
 
 ## 📈 Roadmap
 
-### 🎯 Versione Corrente (v1.2)
-- ✅ **Supporto Active Directory** - Mappings completi da attributi AD
-- ✅ **Supporto Microsoft Intune** - Integration con device management
-- ✅ **Configurazione unificata** - Single config per tutti i mappings
-- ✅ **Windows Service** - Background processing schedulato
-- ✅ **Scheduling con Quartz.NET** - CRON expressions avanzate
-- ✅ **🆕 Health Checks** - Monitoring di tutti i componenti
-- ✅ **🆕 Retry Logic** - Resilienza con Polly policies  
+### 🎯 Current Version (v1.3)
+- ✅ **Active Directory Support** - Complete mappings from AD attributes
+- ✅ **Microsoft Intune Support** - Integration with device management
+- ✅ **Unified Configuration** - Single config for all mappings
+- ✅ **Windows Service** - Scheduled background processing
+- ✅ **Quartz.NET Scheduling** - Advanced CRON expressions
+- ✅ **🆕 Health Checks** - Monitoring of all components
+- ✅ **🆕 Retry Logic** - Resilience with Polly policies  
 - ✅ **🆕 Multi-Channel Notifications** - Teams, Slack, Email
-- ✅ **🆕 Single Device Processing** - Debug e troubleshooting
+- ✅ **🆕 Single Device Processing** - Debug and troubleshooting
+- ✅ **🆕 Web Dashboard & REST API** - Interactive monitoring and management
 
-### 🚀 Prossime Versioni
-
-#### **v1.3** - Web Dashboard & API
-- 🔄 **Web Dashboard** - Interfaccia monitoring real-time
-- 🔄 **REST API** - Endpoints per integrazione esterna
-- 🔄 **Health Check UI** - Dashboard health status
-- 🔄 **Configuration UI** - Web-based configuration management
+### 🚀 Upcoming Versions
 
 #### **v1.4** - Advanced Analytics
 - 🔄 **Advanced Reporting** - Excel, PDF, custom exports
-- 🔄 **Analytics Dashboard** - Trends e statistiche
-- 🔄 **Performance Metrics** - Deep insights sui performance
-- 🔄 **Audit Logging** - Compliance e change tracking
+- 🔄 **Analytics Dashboard** - Trends and statistics
+- 🔄 **Performance Metrics** - Deep performance insights
+- 🔄 **Audit Logging** - Compliance and change tracking
 
 #### **v1.5** - Enterprise Features
 - 🔄 **Azure DevOps Integration** - Pipeline automation
 - 🔄 **Configuration Management** - Environment-specific configs
-- 🔄 **Role-Based Access** - Security e permissions
+- 🔄 **Role-Based Access** - Security and permissions
 - 🔄 **Multi-Tenant Support** - Enterprise scalability
+
+#### **v1.6** - Enhanced Web Features
+- 🔄 **Configuration Editor** - Web-based mapping management
+- 🔄 **Real-time Notifications** - Live updates in dashboard
+- 🔄 **Bulk Device Operations** - Process multiple devices
+- 🔄 **Historical Data** - Trending and historical analysis
 
 #### **v2.0** - AI & Machine Learning
 - 🔄 **Predictive Analytics** - ML-based device insights
@@ -774,30 +883,32 @@ Free Software Foundation, versione 3 della Licenza.
 - 🔄 **Smart Recommendations** - AI-powered optimization
 - 🔄 **Natural Language** - Query devices with NLP
 
-### 🎯 Performance Targets (v1.3)
+### 🎯 Performance Targets (v1.4)
 
-| Metrica | Target | Attuale |
-|---------|--------|---------|
-| **Device Processing Rate** | 1000 devices/min | 500 devices/min |
-| **API Response Time** | <200ms | <300ms |
-| **Health Check Frequency** | 30s | 60s |
-| **Success Rate** | >99% | >95% |
-| **Retry Success Rate** | >90% | >85% |
-
----
-
-## 🏆 Riconoscimenti
-
-Ringraziamenti speciali a:
-
-- **Microsoft Graph Team** - Per le eccellenti API e documentazione
-- **Polly Contributors** - Per la libreria di resilienza
-- **Quartz.NET Team** - Per il robust job scheduling
-- **Serilog Community** - Per il structured logging
-- **Open Source Community** - Per feedback e contributi
+| Metric | Target | Current |
+|--------|--------|---------|
+| **Device Processing Rate** | 1500 devices/min | 1000 devices/min |
+| **API Response Time** | <150ms | <200ms |
+| **Health Check Frequency** | 15s | 30s |
+| **Success Rate** | >99.5% | >99% |
+| **Web Dashboard Load Time** | <2s | <3s |
 
 ---
 
-**Sviluppato con ❤️, ☕, e tanta pazienza da [RGP Bytes](https://rgpbytes.com)**
+## 🏆 Acknowledgments
+
+Special thanks to:
+
+- **Microsoft Graph Team** - For excellent APIs and documentation
+- **Polly Contributors** - For the resilience library
+- **Quartz.NET Team** - For robust job scheduling
+- **Serilog Community** - For structured logging
+- **ASP.NET Core Team** - For the web framework
+- **Bootstrap Team** - For the UI framework
+- **Open Source Community** - For feedback and contributions
+
+---
+
+**Developed with ❤️, ☕, and lots of patience by [RGP Bytes](https://rgpbytes.com)**
 
 *"Making device management automation reliable, one extension attribute at a time."*

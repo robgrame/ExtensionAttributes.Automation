@@ -1,9 +1,10 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Builder;
+using RGP.ExtensionAttributes.Automation.WorkerSvc.Services;
 using Serilog;
-using System.Reflection;
+using Serilog.Events;
 
 namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
 {
@@ -11,28 +12,39 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
     {
         public static void ConfigureHost(HostApplicationBuilder builder)
         {
-            var exePath = Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location ?? string.Empty)!;
+            ConfigureLogging(builder.Configuration);
+            RegisterEarlyServices(builder.Services);
+        }
 
-            // Add configuration files
-            builder.Configuration.AddJsonFile(Path.Combine(exePath, "appsettings.json"), optional: false, reloadOnChange: true);
-            builder.Configuration.AddJsonFile(Path.Combine(exePath, "schedule.json"), optional: false, reloadOnChange: true);
-            builder.Configuration.AddJsonFile(Path.Combine(exePath, "logging.json"), optional: false, reloadOnChange: true);
+        public static void ConfigureWebHost(WebApplicationBuilder builder)
+        {
+            ConfigureLogging(builder.Configuration);
+            RegisterEarlyServices(builder.Services);
+        }
 
-            // Configure logging
-            builder.Logging.ClearProviders();
-
-            // Add Serilog to the builder
+        private static void ConfigureLogging(IConfiguration configuration)
+        {
             Log.Logger = new LoggerConfiguration()
-                .ReadFrom.Configuration(builder.Configuration)
+                .ReadFrom.Configuration(configuration)
+                .Enrich.FromLogContext()
                 .CreateLogger();
 
-            // Add Serilog to the logging pipeline
-            builder.Logging.AddSerilog(Log.Logger);
+            // Log startup information
+            Log.Information("Serilog configured successfully");
+            Log.Information("Application starting at: {Timestamp}", DateTimeOffset.Now);
+            Log.Information("Machine Name: {MachineName}", Environment.MachineName);
+            Log.Information("Operating System: {OS}", Environment.OSVersion);
+            Log.Information("Framework Version: {Framework}", Environment.Version);
+            Log.Information("Process ID: {ProcessId}", Environment.ProcessId);
+        }
 
-            // Register application services
-            builder.Services.AddSingleton<CommandLineService>();
-            builder.Services.AddSingleton<ConsoleDisplayService>();
-            builder.Services.AddSingleton<ConfigurationValidationService>();
+        private static void RegisterEarlyServices(IServiceCollection services)
+        {
+            // Register services needed for configuration validation and command line parsing
+            services.AddLogging(loggingBuilder => loggingBuilder.AddSerilog());
+            services.AddSingleton<ConsoleDisplayService>();
+            services.AddSingleton<CommandLineService>();
+            services.AddSingleton<ConfigurationValidationService>();
         }
     }
 }

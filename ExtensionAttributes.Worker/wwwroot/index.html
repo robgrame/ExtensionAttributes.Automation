@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extension Attributes Automation - Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .status-healthy { color: #28a745; }
+        .status-degraded { color: #ffc107; }
+        .status-unhealthy { color: #dc3545; }
+        .card-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .metric-card { transition: transform 0.2s; }
+        .metric-card:hover { transform: translateY(-2px); }
+        .logo { font-size: 1.5rem; font-weight: bold; }
+        .refresh-btn { animation: spin 2s linear infinite; }
+        .refresh-btn.spinning { animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .json-view { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 1rem; max-height: 400px; overflow-y: auto; }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-dark bg-primary mb-4">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">
+                <i class="fas fa-cogs me-2"></i>
+                RGP Extension Attributes Automation
+            </span>
+            <button class="btn btn-outline-light" onclick="refreshAll()">
+                <i class="fas fa-sync-alt" id="refreshIcon"></i> Refresh
+            </button>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <!-- Status Overview -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-heartbeat me-2"></i>System Health Status</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="healthStatus" class="text-center">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics Row -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card metric-card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-server fa-2x text-primary mb-2"></i>
+                        <h6 class="card-title">System Info</h6>
+                        <div id="systemInfo">Loading...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card metric-card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-database fa-2x text-success mb-2"></i>
+                        <h6 class="card-title">Data Sources</h6>
+                        <div id="dataSources">Loading...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card metric-card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-link fa-2x text-info mb-2"></i>
+                        <h6 class="card-title">Mappings</h6>
+                        <div id="mappingsCount">Loading...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card metric-card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-memory fa-2x text-warning mb-2"></i>
+                        <h6 class="card-title">Memory Usage</h6>
+                        <div id="memoryUsage">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Health Checks Detail -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-list-alt me-2"></i>Health Check Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="healthChecks">
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Extension Attribute Mappings -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-sitemap me-2"></i>Extension Attribute Mappings</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="mappingsTable">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Device Processing -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-desktop me-2"></i>Device Processing</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Process by Device Name</h6>
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control" id="deviceNameInput" placeholder="Enter device name">
+                                    <button class="btn btn-primary" onclick="processDevice()">
+                                        <i class="fas fa-play"></i> Process
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Process by Device ID</h6>
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control" id="deviceIdInput" placeholder="Enter Entra AD Device ID">
+                                    <button class="btn btn-primary" onclick="processDeviceById()">
+                                        <i class="fas fa-play"></i> Process
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="processResult" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let refreshInterval;
+        
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshAll();
+            // Auto-refresh every 30 seconds
+            refreshInterval = setInterval(refreshAll, 30000);
+        });
+
+        async function refreshAll() {
+            const refreshIcon = document.getElementById('refreshIcon');
+            refreshIcon.classList.add('spinning');
+            
+            try {
+                await Promise.all([
+                    loadHealthStatus(),
+                    loadSystemInfo(),
+                    loadMappings()
+                ]);
+            } finally {
+                refreshIcon.classList.remove('spinning');
+            }
+        }
+
+        async function loadHealthStatus() {
+            try {
+                const response = await fetch('/api/status/health');
+                const data = await response.json();
+                
+                const healthStatusEl = document.getElementById('healthStatus');
+                const status = data.status;
+                const statusClass = status === 'Healthy' ? 'status-healthy' : 
+                                 status === 'Degraded' ? 'status-degraded' : 'status-unhealthy';
+                
+                healthStatusEl.innerHTML = `
+                    <h3 class="${statusClass}">
+                        <i class="fas fa-${status === 'Healthy' ? 'check-circle' : status === 'Degraded' ? 'exclamation-triangle' : 'times-circle'}"></i>
+                        ${status}
+                    </h3>
+                    <p class="text-muted">Last checked: ${new Date(data.timestamp).toLocaleString()}</p>
+                    <small class="text-muted">Duration: ${Math.round(data.totalDuration)}ms</small>
+                `;
+
+                // Load health check details
+                loadHealthCheckDetails(data.checks);
+                
+            } catch (error) {
+                document.getElementById('healthStatus').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Error loading health status: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function loadHealthCheckDetails(checks) {
+            const healthChecksEl = document.getElementById('healthChecks');
+            
+            if (!checks || checks.length === 0) {
+                healthChecksEl.innerHTML = '<p class="text-muted">No health checks configured</p>';
+                return;
+            }
+
+            let html = '<div class="row">';
+            checks.forEach(check => {
+                const statusClass = check.status === 'Healthy' ? 'status-healthy' : 
+                                  check.status === 'Degraded' ? 'status-degraded' : 'status-unhealthy';
+                const statusIcon = check.status === 'Healthy' ? 'check-circle' : 
+                                 check.status === 'Degraded' ? 'exclamation-triangle' : 'times-circle';
+                
+                html += `
+                    <div class="col-md-6 col-lg-3 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-${statusIcon} fa-2x ${statusClass} mb-2"></i>
+                                <h6 class="card-title">${check.name}</h6>
+                                <p class="card-text ${statusClass}">${check.status}</p>
+                                <small class="text-muted">${Math.round(check.duration)}ms</small>
+                                ${check.description ? `<br><small class="text-info">${check.description}</small>` : ''}
+                                ${check.exception ? `<br><small class="text-danger">${check.exception}</small>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            healthChecksEl.innerHTML = html;
+        }
+
+        async function loadSystemInfo() {
+            try {
+                const response = await fetch('/api/status/info');
+                const data = await response.json();
+                
+                // Update system info
+                document.getElementById('systemInfo').innerHTML = `
+                    <div><strong>${data.application.name}</strong></div>
+                    <div>v${data.application.version}</div>
+                    <div class="text-muted small">${data.application.machineName}</div>
+                `;
+                
+                // Update data sources
+                const adIcon = data.configuration.adEnabled ? 'fas fa-check-circle text-success' : 'fas fa-times-circle text-muted';
+                const intuneIcon = data.configuration.intuneEnabled ? 'fas fa-check-circle text-success' : 'fas fa-times-circle text-muted';
+                
+                document.getElementById('dataSources').innerHTML = `
+                    <div><i class="${adIcon}"></i> Active Directory</div>
+                    <div><i class="${intuneIcon}"></i> Microsoft Intune</div>
+                    <div class="text-muted small">${data.configuration.preferredDataSource}</div>
+                `;
+                
+                // Update mappings count
+                document.getElementById('mappingsCount').innerHTML = `
+                    <div class="h4 text-primary">${data.configuration.mappingsCount}</div>
+                    <div class="text-muted small">Extension Attributes</div>
+                `;
+                
+                // Update memory usage
+                const memoryMB = Math.round(data.memory.workingSet / 1024 / 1024);
+                document.getElementById('memoryUsage').innerHTML = `
+                    <div class="h4 text-warning">${memoryMB} MB</div>
+                    <div class="text-muted small">Working Set</div>
+                    <div class="text-muted small">GC: ${data.memory.gen0Collections}/${data.memory.gen1Collections}/${data.memory.gen2Collections}</div>
+                `;
+                
+            } catch (error) {
+                console.error('Error loading system info:', error);
+            }
+        }
+
+        async function loadMappings() {
+            try {
+                const response = await fetch('/api/status/mappings');
+                const data = await response.json();
+                
+                const mappingsTableEl = document.getElementById('mappingsTable');
+                
+                if (!data.mappings || data.mappings.length === 0) {
+                    mappingsTableEl.innerHTML = '<p class="text-muted">No extension attribute mappings configured</p>';
+                    return;
+                }
+
+                let html = `
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Extension Attribute</th>
+                                    <th>Source Attribute</th>
+                                    <th>Data Source</th>
+                                    <th>Regex</th>
+                                    <th>Default Value</th>
+                                    <th>Hardware Info</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                data.mappings.forEach(mapping => {
+                    const dataSourceBadge = mapping.dataSource === 'ActiveDirectory' ? 'badge bg-primary' : 'badge bg-success';
+                    html += `
+                        <tr>
+                            <td><code>${mapping.extensionAttribute}</code></td>
+                            <td><code>${mapping.sourceAttribute}</code></td>
+                            <td><span class="${dataSourceBadge}">${mapping.dataSource}</span></td>
+                            <td>${mapping.regex ? `<code class="text-info">${mapping.regex}</code>` : '<span class="text-muted">-</span>'}</td>
+                            <td>${mapping.defaultValue || '<span class="text-muted">-</span>'}</td>
+                            <td>${mapping.useHardwareInfo ? '<i class="fas fa-check text-success"></i>' : '<i class="fas fa-times text-muted"></i>'}</td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody></table></div>';
+                mappingsTableEl.innerHTML = html;
+                
+            } catch (error) {
+                document.getElementById('mappingsTable').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Error loading mappings: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function processDevice() {
+            const deviceName = document.getElementById('deviceNameInput').value.trim();
+            if (!deviceName) {
+                showAlert('Please enter a device name', 'warning');
+                return;
+            }
+
+            const button = event.target;
+            const originalHtml = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            button.disabled = true;
+
+            try {
+                const response = await fetch(`/api/status/process-device/${encodeURIComponent(deviceName)}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.processed) {
+                    showAlert(`Device "${deviceName}" processed successfully!`, 'success');
+                } else {
+                    showAlert(`Failed to process device "${deviceName}": ${data.message || 'Unknown error'}`, 'danger');
+                }
+                
+            } catch (error) {
+                showAlert(`Error processing device: ${error.message}`, 'danger');
+            } finally {
+                button.innerHTML = originalHtml;
+                button.disabled = false;
+                document.getElementById('deviceNameInput').value = '';
+            }
+        }
+
+        async function processDeviceById() {
+            const deviceId = document.getElementById('deviceIdInput').value.trim();
+            if (!deviceId) {
+                showAlert('Please enter a device ID', 'warning');
+                return;
+            }
+
+            const button = event.target;
+            const originalHtml = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            button.disabled = true;
+
+            try {
+                const response = await fetch(`/api/status/process-device-by-id/${encodeURIComponent(deviceId)}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.processed) {
+                    showAlert(`Device ID "${deviceId}" processed successfully!`, 'success');
+                } else {
+                    showAlert(`Failed to process device ID "${deviceId}": ${data.message || 'Unknown error'}`, 'danger');
+                }
+                
+            } catch (error) {
+                showAlert(`Error processing device: ${error.message}`, 'danger');
+            } finally {
+                button.innerHTML = originalHtml;
+                button.disabled = false;
+                document.getElementById('deviceIdInput').value = '';
+            }
+        }
+
+        function showAlert(message, type) {
+            const alertHtml = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'exclamation-circle'}"></i>
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            document.getElementById('processResult').innerHTML = alertHtml;
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                const alert = document.querySelector('#processResult .alert');
+                if (alert) {
+                    alert.remove();
+                }
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

@@ -18,11 +18,14 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Graph;
 using Quartz;
 using Serilog;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
+using System.Text.Json;
 
 namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
 {
@@ -30,16 +33,27 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
     {
         public static void RegisterServices(HostApplicationBuilder builder)
         {
+            RegisterCoreServices(builder.Services, builder.Configuration);
+        }
+
+        public static void RegisterWebServices(WebApplicationBuilder builder)
+        {
+            RegisterCoreServices(builder.Services, builder.Configuration);
+            RegisterWebSpecificServices(builder.Services, builder.Configuration);
+        }
+
+        private static void RegisterCoreServices(IServiceCollection services, IConfiguration configuration)
+        {
             // Configure options
-            builder.Services.Configure<AppSettings>(builder.Configuration.GetSection(nameof(AppSettings)));
-            builder.Services.Configure<ADHelperSettings>(builder.Configuration.GetSection(nameof(ADHelperSettings)));
-            builder.Services.Configure<EntraADHelperSettings>(builder.Configuration.GetSection(nameof(EntraADHelperSettings)));
-            builder.Services.Configure<IntuneHelperSettings>(builder.Configuration.GetSection(nameof(IntuneHelperSettings)));
-            builder.Services.Configure<NotificationSettings>(builder.Configuration.GetSection(nameof(NotificationSettings)));
+            services.Configure<AppSettings>(configuration.GetSection(nameof(AppSettings)));
+            services.Configure<ADHelperSettings>(configuration.GetSection(nameof(ADHelperSettings)));
+            services.Configure<EntraADHelperSettings>(configuration.GetSection(nameof(EntraADHelperSettings)));
+            services.Configure<IntuneHelperSettings>(configuration.GetSection(nameof(IntuneHelperSettings)));
+            services.Configure<NotificationSettings>(configuration.GetSection(nameof(NotificationSettings)));
 
             // Get configuration for service registration
-            var entraADHelperSettings = builder.Configuration.GetSection(nameof(EntraADHelperSettings)).Get<EntraADHelperSettings>();
-            var appSettings = builder.Configuration.GetSection(nameof(AppSettings)).Get<AppSettings>();
+            var entraADHelperSettings = configuration.GetSection(nameof(EntraADHelperSettings)).Get<EntraADHelperSettings>();
+            var appSettings = configuration.GetSection(nameof(AppSettings)).Get<AppSettings>();
             
             if (entraADHelperSettings == null)
             {
@@ -52,7 +66,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
             }
 
             // Register HTTP client for Graph API with Polly resilience policies
-            builder.Services.AddHttpClient("GraphAPI", client =>
+            services.AddHttpClient("GraphAPI", client =>
             {
                 client.DefaultRequestHeaders.Add("Accept", "application/json");
                 client.Timeout = TimeSpan.FromSeconds(60); // Extended timeout for resilience
@@ -73,7 +87,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
             });
 
             // Register GraphServiceClient
-            builder.Services.AddSingleton<GraphServiceClient>(provider =>
+            services.AddSingleton<GraphServiceClient>(provider =>
             {
                 var options = new TokenCredentialOptions
                 {
@@ -127,18 +141,18 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
             });
 
             // Register helper services
-            builder.Services.AddSingleton<IADHelper, ADHelper>();
-            builder.Services.AddSingleton<IEntraADHelper, EntraADHelper>();
-            builder.Services.AddSingleton<IIntuneHelper, IntuneHelper>();
-            builder.Services.AddSingleton<AuthenticationHandler>();
-            builder.Services.AddSingleton<INotificationService, NotificationService>();
+            services.AddSingleton<IADHelper, ADHelper>();
+            services.AddSingleton<IEntraADHelper, EntraADHelper>();
+            services.AddSingleton<IIntuneHelper, IntuneHelper>();
+            services.AddSingleton<AuthenticationHandler>();
+            services.AddSingleton<INotificationService, NotificationService>();
             
             // Register job utility services
-            builder.Services.AddSingleton<IntuneExtensionAttributeHelper>();
-            builder.Services.AddSingleton<UnifiedExtensionAttributeHelper>(); // NEW: Unified helper
+            services.AddSingleton<IntuneExtensionAttributeHelper>();
+            services.AddSingleton<UnifiedExtensionAttributeHelper>(); // NEW: Unified helper
 
             // Register Health Checks based on enabled data sources
-            var healthChecksBuilder = builder.Services.AddHealthChecks()
+            var healthChecksBuilder = services.AddHealthChecks()
                 .AddCheck<ConfigurationHealthCheck>("configuration", HealthStatus.Unhealthy, ["config"]);
 
             // Add Entra AD health check (always needed for extension attributes)
@@ -158,6 +172,101 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
 
             Log.Information("Registered health checks for enabled data sources - AD: {ADEnabled}, Intune: {IntuneEnabled}",
                 appSettings.DataSources.EnableActiveDirectory, appSettings.DataSources.EnableIntune);
+        }
+
+        private static void RegisterWebSpecificServices(IServiceCollection services, IConfiguration configuration)
+        {
+            // Add ASP.NET Core services for Web Dashboard and API
+            services.AddControllers();
+            services.AddEndpointsApiExplorer();
+            services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo 
+                { 
+                    Title = "Extension Attributes Automation API", 
+                    Version = "v1.2",
+                    Description = "REST API for monitoring and controlling the Extension Attributes Automation Worker Service"
+                });
+            });
+
+            // Configure CORS for dashboard
+            services.AddCors(options =>
+            {
+                options.AddDefaultPolicy(policyBuilder =>
+                {
+                    policyBuilder.AllowAnyOrigin()
+                           .AllowAnyMethod()
+                           .AllowAnyHeader();
+                });
+            });
+
+            // Add Health Checks UI for web mode
+            services.AddHealthChecksUI(options =>
+            {
+                options.SetEvaluationTimeInSeconds(15); // Refresh every 15 seconds
+                options.MaximumHistoryEntriesPerEndpoint(60); // Keep 60 entries per endpoint
+                options.AddHealthCheckEndpoint("Extension Attributes Worker", "/health");
+            });
+
+            Log.Information("Registered web-specific services: Controllers, Swagger, CORS, Health Checks UI");
+        }
+
+        public static void ConfigureWebApplication(WebApplication app)
+        {
+            // Configure the HTTP request pipeline
+            if (app.Environment.IsDevelopment())
+            {
+                app.UseSwagger();
+                app.UseSwaggerUI(c =>
+                {
+                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Extension Attributes Automation API v1");
+                    c.RoutePrefix = "api-docs";
+                });
+            }
+
+            // Enable static files for dashboard
+            app.UseDefaultFiles(); // This will serve index.html as default
+            app.UseStaticFiles();
+
+            app.UseRouting();
+            app.UseCors();
+            
+            // Map health checks endpoints
+            app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+            {
+                ResponseWriter = async (context, report) =>
+                {
+                    context.Response.ContentType = "application/json";
+                    var response = new
+                    {
+                        status = report.Status.ToString(),
+                        duration = report.TotalDuration.TotalMilliseconds,
+                        info = report.Entries.Select(e => new
+                        {
+                            key = e.Key,
+                            status = e.Value.Status.ToString(),
+                            duration = e.Value.Duration.TotalMilliseconds,
+                            description = e.Value.Description,
+                            data = e.Value.Data
+                        })
+                    };
+                    await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+                }
+            });
+
+            // Map Health Checks UI
+            app.MapHealthChecksUI(options =>
+            {
+                options.UIPath = "/health-ui";
+            });
+
+            // Map API controllers
+            app.MapControllers();
+
+            // Redirect root to dashboard
+            app.MapGet("/", () => Results.Redirect("/index.html"));
+
+            Log.Information("Web application configured with dashboard at / and health checks UI at /health-ui");
         }
 
         public static void ConfigureQuartz(HostApplicationBuilder builder)
