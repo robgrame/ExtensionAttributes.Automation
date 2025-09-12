@@ -65,12 +65,12 @@ namespace ExtensionAttributes.Automation.WorkerSvc.Services
                 throw new InvalidOperationException("AppSettings configuration is required.");
             }
 
-            // Register HTTP client for Graph API with Polly resilience policies
+            // Register HTTP client for Graph API with Polly resilience policies and authentication
             services.AddHttpClient("GraphAPI", client =>
             {
                 client.DefaultRequestHeaders.Add("Accept", "application/json");
                 client.Timeout = TimeSpan.FromSeconds(60); // Extended timeout for resilience
-                client.BaseAddress = new Uri("https://graph.microsoft.com/v1.0/");
+                client.BaseAddress = new Uri("https://graph.microsoft.com/");
             })
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
             {
@@ -81,9 +81,52 @@ namespace ExtensionAttributes.Automation.WorkerSvc.Services
                 // Add logging for HTTP requests
                 var loggerFactory = handlerBuilder.Services.GetRequiredService<ILoggerFactory>();
                 var logger = loggerFactory.CreateLogger("GraphAPI.HttpClient");
+                var authLogger = loggerFactory.CreateLogger<GraphApiAuthenticationHandler>();
                 
-                // Apply Polly policies for resilience
+                // Get the same TokenCredential used for GraphServiceClient
+                TokenCredential credential;
+                
+                if (entraADHelperSettings.UseClientSecret)
+                {
+                    if (string.IsNullOrWhiteSpace(entraADHelperSettings.ClientSecret))
+                    {
+                        throw new InvalidOperationException("ClientSecret is required when UseClientSecret is true.");
+                    }
+
+                    credential = new ClientSecretCredential(
+                        entraADHelperSettings.TenantId, 
+                        entraADHelperSettings.ClientId, 
+                        entraADHelperSettings.ClientSecret, 
+                        new TokenCredentialOptions { AuthorityHost = AzureAuthorityHosts.AzurePublicCloud });
+                }
+                else
+                {
+                    using var store = new X509Store(StoreLocation.LocalMachine);
+                    store.Open(OpenFlags.ReadOnly);
+                    var certificate = store.Certificates
+                        .Find(X509FindType.FindByThumbprint, entraADHelperSettings.CertificateThumbprint ?? string.Empty, validOnly: false)
+                        .OfType<X509Certificate2>()
+                        .FirstOrDefault();
+
+                    if (certificate != null)
+                    {
+                        credential = new ClientCertificateCredential(
+                            entraADHelperSettings.TenantId, 
+                            entraADHelperSettings.ClientId, 
+                            certificate, 
+                            new TokenCredentialOptions { AuthorityHost = AzureAuthorityHosts.AzurePublicCloud });
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Certificate with thumbprint {entraADHelperSettings.CertificateThumbprint} not found.");
+                    }
+                }
+                
+                // Add authentication handler first, then Polly policies
+                handlerBuilder.AdditionalHandlers.Add(new GraphApiAuthenticationHandler(credential, authLogger));
                 handlerBuilder.AdditionalHandlers.Add(new PolicyHandler(PollyPolicies.GetGraphApiPolicy(logger)));
+                
+                Log.Information("Configured Graph API HttpClient with authentication and resilience policies");
             });
 
             // Register GraphServiceClient

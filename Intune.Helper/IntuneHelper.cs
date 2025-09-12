@@ -1,8 +1,11 @@
 ﻿using Microsoft.Graph;
 using Microsoft.Graph.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Net.Http;
+using System.Text.Json.Serialization;
 
 namespace Azure.Automation.Intune
 {
@@ -10,11 +13,16 @@ namespace Azure.Automation.Intune
     {
         private readonly ILogger<IIntuneHelper> _logger;
         private readonly GraphServiceClient _graphServiceClient;
+        private readonly HttpClient _httpClient;
+        private readonly string _baseUrl = "https://graph.microsoft.com";
 
-        public IntuneHelper(ILogger<IIntuneHelper> logger, GraphServiceClient graphClient)
+        public IntuneHelper(ILogger<IIntuneHelper> logger, GraphServiceClient graphClient, IHttpClientFactory httpClientFactory)
         {
             _logger = logger;
             _graphServiceClient = graphClient;
+            _httpClient = httpClientFactory.CreateClient("GraphAPI");
+            
+            _logger.LogInformation("IntuneHelper initialized with authenticated REST API support.");
         }
 
         #region Basic Device Information
@@ -160,10 +168,28 @@ namespace Azure.Automation.Intune
         {
             try
             {
-                _logger.LogDebug("Getting installed applications for device ID: {DeviceId}", deviceId);
-                // Note: This API might not be directly available in the current Microsoft Graph SDK
-                // This is a placeholder implementation
-                return new List<MobileApp>();
+                _logger.LogDebug("Getting installed applications for device ID: {DeviceId} via REST API", deviceId);
+
+                // Use beta endpoint for app installation statuses
+                var endpoint = $"/beta/deviceManagement/managedDevices('{deviceId}')/mobileAppIntentAndStates";
+                var response = await MakeGraphApiCall<AppIntentStatesResponse>(endpoint);
+                
+                var installedApps = new List<MobileApp>();
+                
+                if (response?.Value != null)
+                {
+                    foreach (var appState in response.Value.Where(app => app.InstallState == "installed"))
+                    {
+                        if (appState.MobileApp != null)
+                        {
+                            installedApps.Add(appState.MobileApp);
+                            _logger.LogDebug("Found installed app: {AppName}", appState.MobileApp.DisplayName);
+                        }
+                    }
+                }
+
+                _logger.LogInformation("Retrieved {AppCount} installed applications for device: {DeviceId}", installedApps.Count, deviceId);
+                return installedApps;
             }
             catch (Exception ex)
             {
@@ -176,10 +202,16 @@ namespace Azure.Automation.Intune
         {
             try
             {
-                _logger.LogDebug("Getting detected applications for device ID: {DeviceId}", deviceId);
-                // Note: DetectedApps API might not be directly available
-                // This is a placeholder - you might need to use a different approach
-                return new List<DetectedApp>();
+                _logger.LogDebug("Getting detected applications for device ID: {DeviceId} via REST API", deviceId);
+
+                // Use beta endpoint for detected apps
+                var endpoint = $"/beta/deviceManagement/managedDevices('{deviceId}')/detectedApps";
+                var response = await MakeGraphApiCall<DetectedAppsResponse>(endpoint);
+                
+                var detectedApps = response?.Value ?? new List<DetectedApp>();
+                _logger.LogInformation("Retrieved {AppCount} detected applications for device: {DeviceId}", detectedApps.Count, deviceId);
+                
+                return detectedApps;
             }
             catch (Exception ex)
             {
@@ -216,9 +248,56 @@ namespace Azure.Automation.Intune
         {
             try
             {
-                // This would require checking device compliance policies or configuration profiles
-                // For now, return false as placeholder
-                _logger.LogDebug("Checking BitLocker status for device ID: {DeviceId}", deviceId);
+                _logger.LogDebug("Checking BitLocker status for device ID: {DeviceId} via REST API", deviceId);
+
+                // Get device compliance policy states to check BitLocker/encryption settings
+                var endpoint = $"/beta/deviceManagement/managedDevices('{deviceId}')/deviceCompliancePolicyStates";
+                var response = await MakeGraphApiCall<CompliancePolicyStatesResponse>(endpoint);
+
+                if (response?.Value != null)
+                {
+                    foreach (var policyState in response.Value)
+                    {
+                        if (policyState.SettingStates != null)
+                        {
+                            // Look for BitLocker or encryption-related settings
+                            var encryptionSetting = policyState.SettingStates.FirstOrDefault(s => 
+                                s.Setting != null && (
+                                    s.Setting.Contains("bitlocker", StringComparison.OrdinalIgnoreCase) ||
+                                    s.Setting.Contains("encryption", StringComparison.OrdinalIgnoreCase) ||
+                                    s.Setting.Contains("deviceEncryption", StringComparison.OrdinalIgnoreCase)
+                                ));
+
+                            if (encryptionSetting != null)
+                            {
+                                bool isEnabled = encryptionSetting.State?.Equals("compliant", StringComparison.OrdinalIgnoreCase) == true;
+                                _logger.LogDebug("BitLocker/Encryption status for device {DeviceId}: {Status}", deviceId, isEnabled ? "Enabled" : "Disabled");
+                                return isEnabled;
+                            }
+                        }
+                    }
+                }
+
+                // Alternative: Check device configuration states
+                var configEndpoint = $"/beta/deviceManagement/managedDevices('{deviceId}')/deviceConfigurationStates";
+                var configResponse = await MakeGraphApiCall<DeviceConfigurationStatesResponse>(configEndpoint);
+
+                if (configResponse?.Value != null)
+                {
+                    foreach (var configState in configResponse.Value)
+                    {
+                        if (configState.DisplayName != null && 
+                            (configState.DisplayName.Contains("BitLocker", StringComparison.OrdinalIgnoreCase) ||
+                             configState.DisplayName.Contains("Encryption", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            bool isConfigured = configState.State?.Equals("compliant", StringComparison.OrdinalIgnoreCase) == true;
+                            _logger.LogDebug("BitLocker configuration for device {DeviceId}: {Status}", deviceId, isConfigured ? "Configured" : "Not Configured");
+                            return isConfigured;
+                        }
+                    }
+                }
+
+                _logger.LogDebug("No BitLocker information found for device: {DeviceId}", deviceId);
                 return false;
             }
             catch (Exception ex)
@@ -550,33 +629,283 @@ namespace Azure.Automation.Intune
         #region Autopilot
         public async Task<bool> IsAutopilotRegistered(string serialNumber)
         {
-            // Placeholder implementation
-            return false;
+            try
+            {
+                _logger.LogDebug("Checking Autopilot registration for serial: {SerialNumber} via REST API", serialNumber);
+
+                var endpoint = $"/beta/deviceManagement/windowsAutopilotDeviceIdentities?$filter=serialNumber eq '{serialNumber}'";
+                var response = await MakeGraphApiCall<AutopilotDevicesResponse>(endpoint);
+
+                bool isRegistered = response?.Value?.Any() == true;
+                
+                if (isRegistered)
+                {
+                    var device = response?.Value?.First();
+                    _logger.LogInformation("Autopilot device found - Serial: {SerialNumber}, ID: {DeviceId}", 
+                        serialNumber, device?.Id);
+                }
+                else
+                {
+                    _logger.LogDebug("No Autopilot registration found for serial: {SerialNumber}", serialNumber);
+                }
+                
+                return isRegistered;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking Autopilot registration for serial: {SerialNumber}", serialNumber);
+                return false;
+            }
         }
 
         public async Task<bool> IsAutopilotRegistered(string serialNumber, string hardwareHash)
         {
-            // Placeholder implementation
-            return false;
+            try
+            {
+                // First check by serial number
+                bool isRegistered = await IsAutopilotRegistered(serialNumber);
+                
+                if (isRegistered)
+                {
+                    // Optionally verify hardware hash matches
+                    var endpoint = $"/beta/deviceManagement/windowsAutopilotDeviceIdentities?$filter=serialNumber eq '{serialNumber}'";
+                    var response = await MakeGraphApiCall<AutopilotDevicesResponse>(endpoint);
+                    
+                    if (response?.Value?.Any() == true)
+                    {
+                        var device = response.Value.First();
+                        _logger.LogDebug("Verified Autopilot registration with hardware hash for: {SerialNumber}", serialNumber);
+                        return true;
+                    }
+                }
+                
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking Autopilot registration with hardware hash for serial: {SerialNumber}", serialNumber);
+                return false;
+            }
         }
 
         public async Task<string> RegisterAutoPilotDevice(string serialNumber, string hardwareHash)
         {
-            // Placeholder implementation
-            return string.Empty;
+            return await RegisterAutoPilotDevice(serialNumber, hardwareHash, "", "");
         }
 
         public async Task<string> RegisterAutoPilotDevice(string serialNumber, string hardwareHash, string groupTag)
         {
-            // Placeholder implementation
-            return string.Empty;
+            return await RegisterAutoPilotDevice(serialNumber, hardwareHash, groupTag, "");
         }
 
         public async Task<string> RegisterAutoPilotDevice(string serialNumber, string hardwareHash, string groupTag, string userUPN)
         {
-            // Placeholder implementation
-            return string.Empty;
+            try
+            {
+                _logger.LogInformation("Registering Autopilot device via REST API - Serial: {SerialNumber}, GroupTag: {GroupTag}", 
+                    serialNumber, groupTag);
+
+                var autopilotDevice = new
+                {
+                    serialNumber = serialNumber,
+                    hardwareIdentifier = hardwareHash,
+                    groupTag = !string.IsNullOrEmpty(groupTag) ? groupTag : null,
+                    assignedUserPrincipalName = !string.IsNullOrEmpty(userUPN) ? userUPN : null
+                };
+
+                var endpoint = "/beta/deviceManagement/windowsAutopilotDeviceIdentities";
+                var response = await MakeGraphApiCall<AutopilotDeviceResponse>(endpoint, HttpMethod.Post, autopilotDevice);
+
+                if (!string.IsNullOrEmpty(response?.Id))
+                {
+                    _logger.LogInformation("Successfully registered Autopilot device - Serial: {SerialNumber}, ID: {DeviceId}, GroupTag: {GroupTag}", 
+                        serialNumber, response.Id, groupTag);
+                    return response.Id;
+                }
+                else
+                {
+                    _logger.LogWarning("Autopilot registration returned empty ID for serial: {SerialNumber}", serialNumber);
+                    return string.Empty;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error registering Autopilot device - Serial: {SerialNumber}", serialNumber);
+                return string.Empty;
+            }
         }
+        #endregion
+
+        #region REST API Helper Methods
+
+        /// <summary>
+        /// Generic method to make Graph API REST calls with proper error handling and logging
+        /// Authentication is handled by the configured HttpClient with GraphApiAuthenticationHandler
+        /// </summary>
+        private async Task<T?> MakeGraphApiCall<T>(string endpoint, HttpMethod? method = null, object? body = null)
+        {
+            try
+            {
+                method ??= HttpMethod.Get;
+                var requestUri = $"{_baseUrl}{endpoint}";
+
+                using var request = new HttpRequestMessage(method, requestUri);
+                
+                if (body != null)
+                {
+                    var jsonOptions = new JsonSerializerOptions 
+                    { 
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                    };
+                    var json = JsonSerializer.Serialize(body, jsonOptions);
+                    request.Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+                    
+                    _logger.LogDebug("REST API request body: {RequestBody}", json);
+                }
+
+                _logger.LogDebug("Making authenticated Graph API REST call: {Method} {Uri}", method, requestUri);
+
+                var response = await _httpClient.SendAsync(request);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    _logger.LogDebug("Graph API REST call successful: {StatusCode}", response.StatusCode);
+                    
+                    if (string.IsNullOrEmpty(content))
+                    {
+                        return default;
+                    }
+
+                    var jsonOptions = new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true,
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    };
+                    
+                    return JsonSerializer.Deserialize<T>(content, jsonOptions);
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    
+                    if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                    {
+                        _logger.LogError("Authentication failed for REST API call: {Endpoint}. Check token validity and permissions.", endpoint);
+                    }
+                    else if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                    {
+                        _logger.LogWarning("Insufficient permissions for REST API call: {Endpoint}. Required permissions may be missing.", endpoint);
+                    }
+                    else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    {
+                        _logger.LogDebug("Resource not found for REST API call: {Endpoint}", endpoint);
+                    }
+                    else if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                    {
+                        _logger.LogWarning("Rate limited for REST API call: {Endpoint}. Retry logic should handle this.", endpoint);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Graph API REST call failed: {StatusCode} - {ReasonPhrase}. Error: {ErrorContent}", 
+                            response.StatusCode, response.ReasonPhrase, errorContent);
+                    }
+                    
+                    return default;
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "HTTP error making Graph API REST call to: {Endpoint}", endpoint);
+                return default;
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogError(ex, "JSON serialization error for Graph API REST call to: {Endpoint}", endpoint);
+                return default;
+            }
+            catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+            {
+                _logger.LogError(ex, "Timeout making Graph API REST call to: {Endpoint}", endpoint);
+                return default;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error making Graph API REST call to: {Endpoint}", endpoint);
+                return default;
+            }
+        }
+
+        #endregion
+
+        #region Response Models for REST API
+
+        private class AppIntentStatesResponse
+        {
+            public List<MobileAppIntentAndState>? Value { get; set; }
+        }
+
+        private class MobileAppIntentAndState
+        {
+            public string? InstallState { get; set; }
+            public MobileApp? MobileApp { get; set; }
+        }
+
+        private class DetectedAppsResponse
+        {
+            public List<DetectedApp>? Value { get; set; }
+        }
+
+        private class DeviceConfigurationStatesResponse
+        {
+            public List<DeviceConfigurationState>? Value { get; set; }
+        }
+
+        private class DeviceConfigurationState
+        {
+            public string? DisplayName { get; set; }
+            public string? State { get; set; }
+            public DateTime? LastReportedDateTime { get; set; }
+        }
+
+        private class CompliancePolicyStatesResponse
+        {
+            public List<CompliancePolicyState>? Value { get; set; }
+        }
+
+        private class CompliancePolicyState
+        {
+            public string? DisplayName { get; set; }
+            public List<PolicySettingState>? SettingStates { get; set; }
+        }
+
+        private class PolicySettingState
+        {
+            public string? Setting { get; set; }
+            public string? State { get; set; }
+            public string? ErrorDescription { get; set; }
+        }
+
+        private class AutopilotDevicesResponse
+        {
+            public List<AutopilotDevice>? Value { get; set; }
+        }
+
+        private class AutopilotDevice
+        {
+            public string? Id { get; set; }
+            public string? SerialNumber { get; set; }
+            public string? GroupTag { get; set; }
+            public string? AssignedUserPrincipalName { get; set; }
+        }
+
+        private class AutopilotDeviceResponse
+        {
+            public string? Id { get; set; }
+            public string? SerialNumber { get; set; }
+        }
+
         #endregion
     }
 }
