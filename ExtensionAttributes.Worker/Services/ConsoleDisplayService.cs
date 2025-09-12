@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
+namespace ExtensionAttributes.Automation.WorkerSvc.Services
 {
     public class ConsoleDisplayService
     {
@@ -14,11 +14,11 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine("------------------------------------------------------------------------------------------------------");
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("RGP Extension Attributes Automation Worker Service");
+            Console.WriteLine("Extension Attributes Automation Worker Service");
             
             var version = GetApplicationVersion();
             Console.WriteLine($"Version: {version}");
-            Console.WriteLine("Copyright (c) 2025 RGP Bytes");
+            Console.WriteLine("Copyright (c) 2025 Extension Attributes Automation Community");
             Console.WriteLine("All rights reserved.");
             Console.WriteLine("This program is licensed under GPL 3.0");
             Console.WriteLine();

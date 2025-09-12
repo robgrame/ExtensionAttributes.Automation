@@ -1,13 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
-using RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils;
-using RGP.ExtensionAttributes.Automation.WorkerSvc.Config;
-using RGP.ExtensionAttributes.Automation.WorkerSvc.Services;
+using ExtensionAttributes.Automation.WorkerSvc.JobUtils;
+using ExtensionAttributes.Automation.WorkerSvc.Config;
+using ExtensionAttributes.Automation.WorkerSvc.Services;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
 
-namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Controllers
+namespace ExtensionAttributes.Automation.WorkerSvc.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
@@ -102,7 +102,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Controllers
                 {
                     application = new
                     {
-                        name = "RGP Extension Attributes Automation Worker",
+                        name = "Extension Attributes Automation Worker",
                         version = "1.3.0",
                         environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production",
                         machineName = Environment.MachineName,

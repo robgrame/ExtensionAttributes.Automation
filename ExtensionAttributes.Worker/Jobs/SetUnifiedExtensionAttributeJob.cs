@@ -1,10 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Quartz;
-using RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils;
+using ExtensionAttributes.Automation.WorkerSvc.JobUtils;
 using System.Runtime.Versioning;
 
-namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Jobs
+namespace ExtensionAttributes.Automation.WorkerSvc.Jobs
 {
     [DisallowConcurrentExecution]
     public class SetUnifiedExtensionAttributeJob : IJob

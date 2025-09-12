@@ -1,4 +1,4 @@
-﻿using RGP.ExtensionAttributes.Automation.WorkerSvc.Config;
+﻿using ExtensionAttributes.Automation.WorkerSvc.Config;
 using AD.Automation;
 using AD.Helper.Config;
 using Azure.Automation;

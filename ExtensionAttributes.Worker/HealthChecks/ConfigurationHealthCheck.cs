@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using RGP.ExtensionAttributes.Automation.WorkerSvc.Config;
+using ExtensionAttributes.Automation.WorkerSvc.Config;
 
-namespace RGP.ExtensionAttributes.Automation.WorkerSvc.HealthChecks
+namespace ExtensionAttributes.Automation.WorkerSvc.HealthChecks
 {
     public class ConfigurationHealthCheck : IHealthCheck
     {

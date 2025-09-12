@@ -1,4 +1,4 @@
-﻿# RGP Extension Attributes Automation Worker Service
+﻿# Extension Attributes Automation Worker Service
 
 A complete and highly resilient solution for automating Microsoft Entra AD (Azure AD) Extension Attributes management based on information from Active Directory and/or Microsoft Intune.
 
@@ -30,7 +30,7 @@ A complete and highly resilient solution for automating Microsoft Entra AD (Azur
 
 ## 🔍 Overview
 
-The **RGP Extension Attributes Automation Worker Service** is a powerful and highly resilient tool that automates the synchronization of Microsoft Entra AD Extension Attributes using data from:
+The **Extension Attributes Automation Worker Service** is a powerful and highly resilient tool that automates the synchronization of Microsoft Entra AD Extension Attributes using data from:
 
 - **Active Directory on-premise** - AD computer attributes
 - **Microsoft Intune** - Hardware, software, and compliance information from managed devices
@@ -105,7 +105,7 @@ The solution supports regular expressions for extracting specific values, defaul
                                   │
                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    RGP Extension Attributes Worker                          │
+│                Extension Attributes Automation Worker                       │
 │  ┌─────────────────────────────────────────────────────────────────────────┐ │
 │  │               🌐 Web Dashboard & REST API                              │ │
 │  │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────────────────┐ │ │
@@ -156,7 +156,7 @@ The solution supports regular expressions for extracting specific values, defaul
 
 1. **Clone the repository:**
 ```bash
-git clone https://github.com/robgrame/ExtensionAttributes.Automation.git
+git clone https://github.com/yourusername/ExtensionAttributes.Automation.git
 cd ExtensionAttributes.Automation
 ```
 
@@ -181,7 +181,7 @@ The `appsettings.json` file contains all necessary configurations:
 {
   "AppSettings": {
     "ExportPath": "C:\\Temp\\Automation\\Export",
-    "ExportFileNamePrefix": "RGP.DevicesProcessed",
+    "ExportFileNamePrefix": "DevicesProcessed",
     "DataSources": {
       "EnableActiveDirectory": true,
       "EnableIntune": true,
@@ -720,7 +720,7 @@ ExtensionAttributes.WorkerSvc.exe --web
 The service uses **Serilog** for structured logging with multiple destinations:
 
 - **Console**: During console execution with colors
-- **File**: `C:\Temp\Automation\RGP.Automation.Worker.log` with rolling
+- **File**: `C:\Temp\Automation\ExtensionAttributes.Automation.Worker.log` with rolling
 - **Windows Event Log**: When running as service
 - **🆕 Structured JSON**: For integration with log analyzers
 
@@ -805,7 +805,7 @@ Contributions are always welcome! To contribute:
 
 ```bash
 # Clone repository
-git clone https://github.com/robgrame/ExtensionAttributes.Automation.git
+git clone https://github.com/yourusername/ExtensionAttributes.Automation.git
 
 # Setup environment
 dotnet restore
@@ -827,7 +827,7 @@ dotnet run -- --web
 This project is distributed under GPL v3 license. See the `LICENSE` file for complete details.
 
 ```
-Copyright (c) 2025 RGP Bytes
+Copyright (c) 2025 Extension Attributes Automation Contributors
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, version 3 of the License.
@@ -835,9 +835,8 @@ the Free Software Foundation, version 3 of the License.
 
 ## 🆘 Support
 
-- **Issues**: [GitHub Issues](https://github.com/robgrame/ExtensionAttributes.Automation/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/robgrame/ExtensionAttributes.Automation/discussions)
-- **Email**: support@rgpbytes.com
+- **Issues**: [GitHub Issues](https://github.com/yourusername/ExtensionAttributes.Automation/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/yourusername/ExtensionAttributes.Automation/discussions)
 - **🆕 Teams**: Automatic notifications for critical issues
 - **🆕 Web Dashboard**: Real-time status monitoring
 
@@ -909,6 +908,6 @@ Special thanks to:
 
 ---
 
-**Developed with ❤️, ☕, and lots of patience by [RGP Bytes](https://rgpbytes.com)**
+**Developed with ❤️, ☕, and lots of patience by the Extension Attributes Automation Community**
 
 *"Making device management automation reliable, one extension attribute at a time."*

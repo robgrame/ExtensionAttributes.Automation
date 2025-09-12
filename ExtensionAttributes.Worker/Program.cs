@@ -1,11 +1,11 @@
-﻿using RGP.ExtensionAttributes.Automation.WorkerSvc.Services;
+﻿using ExtensionAttributes.Automation.WorkerSvc.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Builder;
 using Serilog;
 
-namespace RGP.ExtensionAttributes.Automation.WorkerSvc
+namespace ExtensionAttributes.Automation.WorkerSvc
 {
     internal class Program
     {

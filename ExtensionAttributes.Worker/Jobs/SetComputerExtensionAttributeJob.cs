@@ -1,12 +1,12 @@
-﻿using RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils;
-using RGP.ExtensionAttributes.Automation.WorkerSvc.Config;
+﻿using ExtensionAttributes.Automation.WorkerSvc.JobUtils;
+using ExtensionAttributes.Automation.WorkerSvc.Config;
 using AD.Helper.Config;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Quartz;
 using System.Runtime.Versioning;
 
-namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Jobs
+namespace ExtensionAttributes.Automation.WorkerSvc.Jobs
 {
     [DisallowConcurrentExecution]
 

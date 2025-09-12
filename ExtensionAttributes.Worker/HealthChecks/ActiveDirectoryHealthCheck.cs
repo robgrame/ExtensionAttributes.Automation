@@ -2,7 +2,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using AD.Automation;
 
-namespace RGP.ExtensionAttributes.Automation.WorkerSvc.HealthChecks
+namespace ExtensionAttributes.Automation.WorkerSvc.HealthChecks
 {
     public class ActiveDirectoryHealthCheck : IHealthCheck
     {

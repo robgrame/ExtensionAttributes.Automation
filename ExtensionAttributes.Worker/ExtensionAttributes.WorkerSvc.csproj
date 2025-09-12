@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationIcon>icon.ico</ApplicationIcon>
-    <Authors>RGP Bytes</Authors>
+    <Authors>Extension Attributes Automation Community</Authors>
     <Copyright>$(Authors) </Copyright>
     <Description>Automation service to set Computer Extension Attributes</Description>
   </PropertyGroup>

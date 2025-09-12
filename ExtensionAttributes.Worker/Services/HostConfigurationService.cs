@@ -2,11 +2,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Builder;
-using RGP.ExtensionAttributes.Automation.WorkerSvc.Services;
 using Serilog;
 using Serilog.Events;
 
-namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
+namespace ExtensionAttributes.Automation.WorkerSvc.Services
 {
     public class HostConfigurationService
     {

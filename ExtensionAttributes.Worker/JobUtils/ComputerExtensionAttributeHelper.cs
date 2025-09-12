@@ -4,11 +4,11 @@ using Microsoft.Extensions.Options;
 using System.Text.RegularExpressions;
 using AD.Automation;
 using Azure.Automation;
-using RGP.ExtensionAttributes.Automation.WorkerSvc.Config;
+using ExtensionAttributes.Automation.WorkerSvc.Config;
 using System.Runtime.Versioning;
 using AD.Helper.Config;
 
-namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
+namespace ExtensionAttributes.Automation.WorkerSvc.JobUtils
 {
     public static class ComputerExtensionAttributeHelper
     {

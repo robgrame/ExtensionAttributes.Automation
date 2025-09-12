@@ -1,4 +1,4 @@
-﻿namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Config
+﻿namespace ExtensionAttributes.Automation.WorkerSvc.Config
 {
     public class AppSettings
     {

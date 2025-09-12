@@ -1,5 +1,5 @@
-using RGP.ExtensionAttributes.Automation.WorkerSvc.Config;
-using RGP.ExtensionAttributes.Automation.WorkerSvc.Services;
+using ExtensionAttributes.Automation.WorkerSvc.Config;
+using ExtensionAttributes.Automation.WorkerSvc.Services;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using Azure.Automation;
@@ -11,7 +11,7 @@ using CsvHelper;
 using CsvHelper.Configuration;
 using System.Globalization;
 
-namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
+namespace ExtensionAttributes.Automation.WorkerSvc.JobUtils
 {
     /// <summary>
     /// Unified helper that processes extension attributes from both Active Directory and Intune

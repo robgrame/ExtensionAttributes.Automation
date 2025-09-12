@@ -4,7 +4,7 @@ using Quartz;
 using RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils;
 using System.Runtime.Versioning;
 
-namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Jobs
+namespace ExtensionAttributes.Automation.WorkerSvc.Jobs
 {
     [DisallowConcurrentExecution]
     public class SetIntuneExtensionAttributeJob : IJob

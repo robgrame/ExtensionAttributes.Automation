@@ -28,7 +28,7 @@
         "Name": "File",
         "Args": {
           "outputTemplate": "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} \t [{Level}] \t [{SourceContext}] \t {Properties} {Message}{NewLine}{Exception}",
-          "path": "C:\\Temp\\Automation\\RGP.Automation.Worker.log",
+          "path": "C:\\Temp\\Automation\\ExtensionAttributes.Automation.Worker.log",
           "encoding": "System.Text.UTF8Encoding", // utf-8, utf-16, utf-32"
           "rollingInterval": "Day",
           "rollOnFileSizeLimit": true,

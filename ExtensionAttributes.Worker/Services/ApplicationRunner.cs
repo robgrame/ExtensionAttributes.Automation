@@ -1,12 +1,13 @@
-using RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils;
-using RGP.ExtensionAttributes.Automation.WorkerSvc.Config;
+using ExtensionAttributes.Automation.WorkerSvc.JobUtils;
+using ExtensionAttributes.Automation.WorkerSvc.Config;
+using ExtensionAttributes.Automation.WorkerSvc.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Serilog;
 
-namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
+namespace ExtensionAttributes.Automation.WorkerSvc.Services
 {
     public class ApplicationRunner
     {

@@ -3,7 +3,7 @@ using Polly;
 using Polly.Extensions.Http;
 using System.Net;
 
-namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
+namespace ExtensionAttributes.Automation.WorkerSvc.Services
 {
     public static class PollyPolicies
     {

@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using System.Diagnostics;
 
-namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
+namespace ExtensionAttributes.Automation.WorkerSvc.Services
 {
     /// <summary>
     /// Audit event types for tracking operations
@@ -100,7 +100,7 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
         {
             _logger = logger;
             _auditEntries = new List<AuditLogEntry>();
-            _auditFilePath = Path.Combine(Path.GetTempPath(), "RGP.Automation", "Audit", $"audit-{DateTime.UtcNow:yyyy-MM-dd}.json");
+            _auditFilePath = Path.Combine(Path.GetTempPath(), "ExtensionAttributesAutomation", "Audit", $"audit-{DateTime.UtcNow:yyyy-MM-dd}.json");
             _maxEntriesInMemory = 1000;
             _flushInterval = TimeSpan.FromMinutes(5);
 

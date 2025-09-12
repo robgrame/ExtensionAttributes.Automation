@@ -1,4 +1,4 @@
-﻿using RGP.ExtensionAttributes.Automation.WorkerSvc.Config;
+﻿using ExtensionAttributes.Automation.WorkerSvc.Config;
 using CsvHelper;
 using CsvHelper.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Globalization;
 
-namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
+namespace ExtensionAttributes.Automation.WorkerSvc.JobUtils
 {
     internal class ExportHelper
     {

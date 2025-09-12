@@ -1,8 +1,8 @@
-using RGP.ExtensionAttributes.Automation.WorkerSvc.Config;
-using RGP.ExtensionAttributes.Automation.WorkerSvc.Jobs;
-using RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils;
-using RGP.ExtensionAttributes.Automation.WorkerSvc.HealthChecks;
-using RGP.ExtensionAttributes.Automation.WorkerSvc.Services;
+using ExtensionAttributes.Automation.WorkerSvc.Config;
+using ExtensionAttributes.Automation.WorkerSvc.Jobs;
+using ExtensionAttributes.Automation.WorkerSvc.JobUtils;
+using ExtensionAttributes.Automation.WorkerSvc.HealthChecks;
+using ExtensionAttributes.Automation.WorkerSvc.Services;
 using AD.Helper.Config;
 using Azure.Automation.Config;
 using Azure.Automation.Intune.Config;
@@ -27,7 +27,7 @@ using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 
-namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
+namespace ExtensionAttributes.Automation.WorkerSvc.Services
 {
     public class ServiceRegistrationService
     {
@@ -151,7 +151,6 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
             services.AddSingleton<IAuditLogger, AuditLogger>();
             
             // Register job utility services
-            services.AddSingleton<IntuneExtensionAttributeHelper>();
             services.AddSingleton<UnifiedExtensionAttributeHelper>(); // NEW: Unified helper
 
             // Register Health Checks based on enabled data sources

@@ -1,11 +1,11 @@
-using RGP.ExtensionAttributes.Automation.WorkerSvc.Config;
+using ExtensionAttributes.Automation.WorkerSvc.Config;
 using AD.Helper.Config;
 using Azure.Automation.Config;
 using Azure.Automation.Intune.Config;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
+namespace ExtensionAttributes.Automation.WorkerSvc.Services
 {
     public class ConfigurationValidationService
     {

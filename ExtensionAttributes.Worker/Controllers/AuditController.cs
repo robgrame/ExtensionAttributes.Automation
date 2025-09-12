@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using RGP.ExtensionAttributes.Automation.WorkerSvc.Services;
+using ExtensionAttributes.Automation.WorkerSvc.Services;
 
-namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Controllers
+namespace ExtensionAttributes.Automation.WorkerSvc.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]

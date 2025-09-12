@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
+namespace ExtensionAttributes.Automation.WorkerSvc.Services
 {
     public class CommandLineService
     {
