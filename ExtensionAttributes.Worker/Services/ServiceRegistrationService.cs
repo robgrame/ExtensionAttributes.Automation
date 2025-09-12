@@ -147,6 +147,9 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.Services
             services.AddSingleton<AuthenticationHandler>();
             services.AddSingleton<INotificationService, NotificationService>();
             
+            // Register audit logging service
+            services.AddSingleton<IAuditLogger, AuditLogger>();
+            
             // Register job utility services
             services.AddSingleton<IntuneExtensionAttributeHelper>();
             services.AddSingleton<UnifiedExtensionAttributeHelper>(); // NEW: Unified helper

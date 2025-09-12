@@ -1,79 +1,199 @@
 using RGP.ExtensionAttributes.Automation.WorkerSvc.Config;
-using Azure.Automation;
-using Azure.Automation.Intune;
-using AD.Automation;
-using Microsoft.Extensions.Logging;
+using RGP.ExtensionAttributes.Automation.WorkerSvc.Services;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
+using Azure.Automation;
+using AD.Automation;
+using Azure.Automation.Intune;
 using Microsoft.Graph.Models;
-using System.Text.RegularExpressions;
+using System.Diagnostics;
+using CsvHelper;
+using CsvHelper.Configuration;
+using System.Globalization;
 
 namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
 {
+    /// <summary>
+    /// Unified helper that processes extension attributes from both Active Directory and Intune
+    /// based on the configuration, with comprehensive audit logging
+    /// </summary>
     public class UnifiedExtensionAttributeHelper
     {
         private readonly ILogger<UnifiedExtensionAttributeHelper> _logger;
-        private readonly IIntuneHelper _intuneHelper;
+        private readonly AppSettings _appSettings;
         private readonly IEntraADHelper _entraADHelper;
         private readonly IADHelper _adHelper;
-        private readonly AppSettings _appSettings;
+        private readonly IIntuneHelper _intuneHelper;
+        private readonly INotificationService _notificationService;
+        private readonly IAuditLogger _auditLogger;
 
         public UnifiedExtensionAttributeHelper(
             ILogger<UnifiedExtensionAttributeHelper> logger,
-            IIntuneHelper intuneHelper,
+            IOptions<AppSettings> appSettings,
             IEntraADHelper entraADHelper,
             IADHelper adHelper,
-            IOptions<AppSettings> appSettings)
+            IIntuneHelper intuneHelper,
+            INotificationService notificationService,
+            IAuditLogger auditLogger)
         {
             _logger = logger;
-            _intuneHelper = intuneHelper;
+            _appSettings = appSettings.Value;
             _entraADHelper = entraADHelper;
             _adHelper = adHelper;
-            _appSettings = appSettings.Value;
+            _intuneHelper = intuneHelper;
+            _notificationService = notificationService;
+            _auditLogger = auditLogger;
         }
 
+        /// <summary>
+        /// Process extension attributes for all devices using unified configuration
+        /// </summary>
         public async Task<int> ProcessExtensionAttributesAsync()
         {
-            var processedCount = 0;
+            var overallStopwatch = Stopwatch.StartNew();
             
             try
             {
-                _logger.LogInformation("Starting unified extension attribute processing");
+                await _auditLogger.LogSystemEventAsync(
+                    AuditEventType.DeviceProcessingStarted,
+                    "Starting unified extension attribute processing for all devices",
+                    new Dictionary<string, object>
+                    {
+                        ["MappingCount"] = _appSettings.ExtensionAttributeMappings.Count,
+                        ["ADEnabled"] = _appSettings.DataSources.EnableActiveDirectory,
+                        ["IntuneEnabled"] = _appSettings.DataSources.EnableIntune,
+                        ["PreferredDataSource"] = _appSettings.DataSources.PreferredDataSource
+                    });
 
-                // Get all Entra AD devices first
-                var entraDevices = await _entraADHelper.GetDevices();
-                _logger.LogInformation("Found {DeviceCount} Entra AD devices to process", entraDevices.Count());
+                _logger.LogInformation("?? Starting unified extension attribute processing...");
+                _logger.LogInformation("Configuration - AD: {EnableAD}, Intune: {EnableIntune}, Preferred: {Preferred}",
+                    _appSettings.DataSources.EnableActiveDirectory,
+                    _appSettings.DataSources.EnableIntune,
+                    _appSettings.DataSources.PreferredDataSource);
 
-                var semaphore = new SemaphoreSlim(10, 10); // Default concurrent requests
-                var tasks = new List<Task>();
-
-                foreach (var entraDevice in entraDevices)
+                // Validate configuration
+                if (!ValidateConfiguration())
                 {
-                    tasks.Add(ProcessDeviceAsync(entraDevice, semaphore));
+                    await _auditLogger.LogSystemEventAsync(
+                        AuditEventType.ConfigurationChanged,
+                        "Configuration validation failed",
+                        new Dictionary<string, object> { ["ValidationResult"] = "Failed" });
+                    
+                    return 0;
                 }
 
-                await Task.WhenAll(tasks);
-                processedCount = tasks.Count;
+                // Get all Entra AD devices
+                _logger.LogInformation("?? Retrieving Entra AD devices...");
+                var entraDevices = (await _entraADHelper.GetDevices()).ToList();
+                _logger.LogInformation("Found {DeviceCount} devices in Entra AD", entraDevices.Count);
 
-                _logger.LogInformation("Completed processing {ProcessedCount} devices for extension attributes", processedCount);
+                if (!entraDevices.Any())
+                {
+                    _logger.LogWarning("No devices found in Entra AD");
+                    await _auditLogger.LogSystemEventAsync(
+                        AuditEventType.DeviceProcessingCompleted,
+                        "Processing completed - No devices found in Entra AD");
+                    return 0;
+                }
+
+                // Process devices concurrently
+                var processedCount = 0;
+                var failedCount = 0;
+                var semaphore = new SemaphoreSlim(Environment.ProcessorCount * 2);
+
+                var tasks = entraDevices.Select(async device =>
+                {
+                    await semaphore.WaitAsync();
+                    try
+                    {
+                        var deviceProcessed = await ProcessSingleDeviceInternalAsync(device);
+                        if (deviceProcessed)
+                            Interlocked.Increment(ref processedCount);
+                        else
+                            Interlocked.Increment(ref failedCount);
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
+                });
+
+                await Task.WhenAll(tasks);
+
+                overallStopwatch.Stop();
+                
+                // Log completion and performance metrics
+                await _auditLogger.LogPerformanceMetricAsync(
+                    "UnifiedProcessingCompleted",
+                    processedCount,
+                    new Dictionary<string, object>
+                    {
+                        ["TotalDevices"] = entraDevices.Count,
+                        ["ProcessedCount"] = processedCount,
+                        ["FailedCount"] = failedCount,
+                        ["ProcessingTimeMs"] = overallStopwatch.ElapsedMilliseconds,
+                        ["DevicesPerMinute"] = entraDevices.Count / Math.Max(overallStopwatch.Elapsed.TotalMinutes, 1)
+                    });
+
+                await _auditLogger.LogSystemEventAsync(
+                    AuditEventType.DeviceProcessingCompleted,
+                    $"Unified processing completed - Processed: {processedCount}, Failed: {failedCount}",
+                    new Dictionary<string, object>
+                    {
+                        ["TotalDevices"] = entraDevices.Count,
+                        ["ProcessedCount"] = processedCount,
+                        ["FailedCount"] = failedCount,
+                        ["DurationMs"] = overallStopwatch.ElapsedMilliseconds
+                    });
+
+                _logger.LogInformation("? Unified processing completed in {ElapsedTime}. Processed: {ProcessedCount}, Failed: {FailedCount}",
+                    overallStopwatch.Elapsed, processedCount, failedCount);
+
+                // Export results if configured
+                await ExportResultsAsync(entraDevices, processedCount, failedCount);
+
+                // Send notification if there were failures (comment out until notification method is implemented)
+                // if (failedCount > 10) // Use hardcoded threshold for now
+                // {
+                //     await _notificationService.SendDeviceProcessingFailureNotificationAsync(failedCount, entraDevices.Count);
+                // }
+
+                return processedCount;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing extension attributes: {Error}", ex.Message);
-            }
+                overallStopwatch.Stop();
+                
+                await _auditLogger.LogSystemEventAsync(
+                    AuditEventType.DeviceProcessingFailed,
+                    $"Unified processing failed with exception: {ex.Message}",
+                    new Dictionary<string, object>
+                    {
+                        ["ExceptionType"] = ex.GetType().Name,
+                        ["StackTrace"] = ex.StackTrace ?? string.Empty,
+                        ["DurationMs"] = overallStopwatch.ElapsedMilliseconds
+                    });
 
-            return processedCount;
+                _logger.LogError(ex, "? Unified processing failed: {Error}", ex.Message);
+                throw;
+            }
         }
 
         /// <summary>
         /// Process extension attributes for a single device by name
         /// </summary>
-        /// <param name="deviceName">Name of the device to process</param>
-        /// <returns>True if device was found and processed, false otherwise</returns>
         public async Task<bool> ProcessSingleDeviceAsync(string deviceName)
         {
+            var stopwatch = Stopwatch.StartNew();
+            
             try
             {
-                _logger.LogInformation("Starting single device processing for: {DeviceName}", deviceName);
+                await _auditLogger.LogUserActionAsync(
+                    $"Single device processing requested for: {deviceName}",
+                    deviceName,
+                    new Dictionary<string, object> { ["RequestType"] = "ByName" });
+
+                _logger.LogInformation("?? Processing single device: {DeviceName}", deviceName);
 
                 if (string.IsNullOrWhiteSpace(deviceName))
                 {
@@ -81,34 +201,49 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
                     return false;
                 }
 
-                // Find the Entra AD device by name
-                var entraDevice = await _entraADHelper.GetDeviceByNameAsync(deviceName);
-                if (entraDevice == null)
+                // Find the device in Entra AD
+                _logger.LogInformation("?? Looking up device in Entra AD: {DeviceName}", deviceName);
+                var entraDevices = (await _entraADHelper.GetDevices()).ToList();
+                var targetDevice = entraDevices.FirstOrDefault(d =>
+                    string.Equals(d.DisplayName, deviceName, StringComparison.OrdinalIgnoreCase));
+
+                if (targetDevice == null)
                 {
-                    _logger.LogWarning("Entra AD device not found: {DeviceName}", deviceName);
+                    _logger.LogWarning("? Device not found in Entra AD: {DeviceName}", deviceName);
+                    await _auditLogger.LogAsync(
+                        AuditEventType.DeviceProcessingFailed,
+                        $"Device not found in Entra AD: {deviceName}",
+                        AuditSeverity.Medium);
                     return false;
                 }
 
-                _logger.LogInformation("Found Entra AD device: {DeviceName} (DeviceId: {DeviceId})", 
-                    entraDevice.DisplayName, entraDevice.DeviceId);
+                _logger.LogInformation("? Found device in Entra AD: {DisplayName} (ID: {DeviceId})", 
+                    targetDevice.DisplayName, targetDevice.Id);
 
-                // Process all extension attribute mappings for this device
-                var processed = await ProcessSingleDeviceExtensionAttributesAsync(entraDevice);
+                var result = await ProcessSingleDeviceInternalAsync(targetDevice);
                 
-                if (processed)
-                {
-                    _logger.LogInformation("Successfully processed device: {DeviceName}", deviceName);
-                }
-                else
-                {
-                    _logger.LogWarning("Failed to process device: {DeviceName}", deviceName);
-                }
+                stopwatch.Stop();
+                await _auditLogger.LogPerformanceMetricAsync(
+                    "SingleDeviceProcessingTime",
+                    stopwatch.ElapsedMilliseconds,
+                    new Dictionary<string, object>
+                    {
+                        ["DeviceName"] = deviceName,
+                        ["Success"] = result
+                    });
 
-                return processed;
+                return result;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing single device {DeviceName}: {Error}", deviceName, ex.Message);
+                stopwatch.Stop();
+                
+                await _auditLogger.LogAsync(
+                    AuditEventType.DeviceProcessingFailed,
+                    $"Exception processing device {deviceName}: {ex.Message}",
+                    AuditSeverity.High);
+
+                _logger.LogError(ex, "? Failed to process device {DeviceName}: {Error}", deviceName, ex.Message);
                 return false;
             }
         }
@@ -116,13 +251,21 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
         /// <summary>
         /// Process extension attributes for a single device by Entra AD Device ID
         /// </summary>
-        /// <param name="deviceId">Entra AD Device ID</param>
-        /// <returns>True if device was found and processed, false otherwise</returns>
         public async Task<bool> ProcessSingleDeviceByIdAsync(string deviceId)
         {
+            var stopwatch = Stopwatch.StartNew();
+            
             try
             {
-                _logger.LogInformation("Starting single device processing by ID: {DeviceId}", deviceId);
+                await _auditLogger.LogUserActionAsync(
+                    $"Single device processing requested for ID: {deviceId}",
+                    additionalData: new Dictionary<string, object> 
+                    { 
+                        ["RequestType"] = "ByDeviceId",
+                        ["DeviceId"] = deviceId
+                    });
+
+                _logger.LogInformation("?? Processing single device by ID: {DeviceId}", deviceId);
 
                 if (string.IsNullOrWhiteSpace(deviceId))
                 {
@@ -130,426 +273,540 @@ namespace RGP.ExtensionAttributes.Automation.WorkerSvc.JobUtils
                     return false;
                 }
 
-                // Get the Entra AD device by ID
-                var entraDevice = await _entraADHelper.GetDeviceAsync(deviceId);
-                if (entraDevice == null)
+                // Get the specific device from Entra AD by ID
+                _logger.LogInformation("?? Looking up device in Entra AD by ID: {DeviceId}", deviceId);
+                var targetDevice = await _entraADHelper.GetDeviceAsync(deviceId);
+
+                if (targetDevice == null)
                 {
-                    _logger.LogWarning("Entra AD device not found with ID: {DeviceId}", deviceId);
+                    _logger.LogWarning("? Device not found in Entra AD by ID: {DeviceId}", deviceId);
+                    await _auditLogger.LogAsync(
+                        AuditEventType.DeviceProcessingFailed,
+                        $"Device not found in Entra AD by ID: {deviceId}",
+                        AuditSeverity.Medium);
                     return false;
                 }
 
-                _logger.LogInformation("Found Entra AD device: {DeviceName} (DeviceId: {DeviceId})", 
-                    entraDevice.DisplayName, entraDevice.DeviceId);
+                _logger.LogInformation("? Found device in Entra AD: {DisplayName} (ID: {DeviceId})", 
+                    targetDevice.DisplayName, targetDevice.Id);
 
-                // Process all extension attribute mappings for this device
-                var processed = await ProcessSingleDeviceExtensionAttributesAsync(entraDevice);
+                var result = await ProcessSingleDeviceInternalAsync(targetDevice);
                 
-                if (processed)
-                {
-                    _logger.LogInformation("Successfully processed device: {DeviceName}", entraDevice.DisplayName);
-                }
-                else
-                {
-                    _logger.LogWarning("Failed to process device: {DeviceName}", entraDevice.DisplayName);
-                }
+                stopwatch.Stop();
+                await _auditLogger.LogPerformanceMetricAsync(
+                    "SingleDeviceProcessingTimeById",
+                    stopwatch.ElapsedMilliseconds,
+                    new Dictionary<string, object>
+                    {
+                        ["DeviceId"] = deviceId,
+                        ["DeviceName"] = targetDevice.DisplayName ?? "Unknown",
+                        ["Success"] = result
+                    });
 
-                return processed;
+                return result;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing single device by ID {DeviceId}: {Error}", deviceId, ex.Message);
+                stopwatch.Stop();
+                
+                await _auditLogger.LogAsync(
+                    AuditEventType.DeviceProcessingFailed,
+                    $"Exception processing device ID {deviceId}: {ex.Message}",
+                    AuditSeverity.High);
+
+                _logger.LogError(ex, "? Failed to process device by ID {DeviceId}: {Error}", deviceId, ex.Message);
                 return false;
             }
         }
 
-        private async Task<bool> ProcessSingleDeviceExtensionAttributesAsync(Device entraDevice)
+        /// <summary>
+        /// Internal method to process a single device
+        /// </summary>
+        private async Task<bool> ProcessSingleDeviceInternalAsync(Device entraDevice)
         {
+            var deviceStopwatch = Stopwatch.StartNew();
+            var deviceName = entraDevice.DisplayName ?? "Unknown";
+            var processedMappings = 0;
+            var failedMappings = 0;
+
             try
             {
-                if (string.IsNullOrEmpty(entraDevice.DeviceId))
+                _logger.LogDebug("Processing device: {DeviceName} (ID: {DeviceId})", deviceName, entraDevice.Id);
+
+                // Get enabled mappings based on configuration
+                var enabledMappings = GetEnabledMappings();
+                if (!enabledMappings.Any())
                 {
-                    _logger.LogWarning("Device has null DeviceId: {DisplayName}", entraDevice.DisplayName);
-                    return false;
+                    _logger.LogWarning("No enabled extension attribute mappings found for device: {DeviceName}", deviceName);
+                    return true; // Not an error, just no work to do
                 }
 
-                _logger.LogDebug("Processing extension attributes for device: {DisplayName} (DeviceId: {DeviceId})", 
-                    entraDevice.DisplayName, entraDevice.DeviceId);
+                _logger.LogDebug("Processing {MappingCount} extension attribute mappings for device: {DeviceName}",
+                    enabledMappings.Count, deviceName);
 
-                var successCount = 0;
-                var totalCount = 0;
-
-                // Process each extension attribute mapping
-                foreach (var mapping in _appSettings.ExtensionAttributeMappings)
+                // Process each enabled mapping
+                foreach (var mapping in enabledMappings)
                 {
-                    totalCount++;
+                    var mappingStopwatch = Stopwatch.StartNew();
+                    
                     try
                     {
-                        var success = await ProcessExtensionAttributeMapping(entraDevice, mapping);
-                        if (success)
+                        var mappingResult = await ProcessSingleMappingAsync(entraDevice, mapping);
+                        mappingStopwatch.Stop();
+
+                        if (mappingResult)
                         {
-                            successCount++;
+                            processedMappings++;
+                            await _auditLogger.LogPerformanceMetricAsync(
+                                $"MappingProcessingTime_{mapping.ExtensionAttribute}",
+                                mappingStopwatch.ElapsedMilliseconds,
+                                new Dictionary<string, object>
+                                {
+                                    ["DeviceName"] = deviceName,
+                                    ["ExtensionAttribute"] = mapping.ExtensionAttribute,
+                                    ["DataSource"] = mapping.DataSource.ToString()
+                                });
+                        }
+                        else
+                        {
+                            failedMappings++;
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Error processing mapping {ExtensionAttribute} for device {DeviceName}: {Error}",
-                            mapping.ExtensionAttribute, entraDevice.DisplayName, ex.Message);
+                        mappingStopwatch.Stop();
+                        failedMappings++;
+                        
+                        await _auditLogger.LogDeviceProcessingAsync(
+                            deviceName,
+                            mapping.ExtensionAttribute,
+                            null,
+                            null,
+                            false,
+                            mappingStopwatch.Elapsed,
+                            $"Mapping processing exception: {ex.Message}");
+
+                        _logger.LogError(ex, "Failed to process mapping {ExtensionAttribute} for device {DeviceName}: {Error}",
+                            mapping.ExtensionAttribute, deviceName, ex.Message);
                     }
                 }
 
-                _logger.LogInformation("Processed {SuccessCount}/{TotalCount} extension attributes for device {DeviceName}",
-                    successCount, totalCount, entraDevice.DisplayName);
+                deviceStopwatch.Stop();
+                
+                await _auditLogger.LogPerformanceMetricAsync(
+                    "DeviceProcessingCompleted",
+                    deviceStopwatch.ElapsedMilliseconds,
+                    new Dictionary<string, object>
+                    {
+                        ["DeviceName"] = deviceName,
+                        ["ProcessedMappings"] = processedMappings,
+                        ["FailedMappings"] = failedMappings,
+                        ["TotalMappings"] = enabledMappings.Count
+                    });
 
-                return successCount > 0; // Return true if at least one attribute was processed successfully
+                var deviceSuccess = failedMappings == 0;
+                _logger.LogDebug("{Status} processing device {DeviceName}: Processed {ProcessedCount}/{TotalCount} mappings in {ElapsedTime}",
+                    deviceSuccess ? "?" : "??", deviceName, processedMappings, enabledMappings.Count, deviceStopwatch.Elapsed);
+
+                return deviceSuccess;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing single device extension attributes for {DeviceName}: {Error}",
-                    entraDevice.DisplayName, ex.Message);
+                deviceStopwatch.Stop();
+                
+                await _auditLogger.LogDeviceProcessingAsync(
+                    deviceName,
+                    "All",
+                    null,
+                    null,
+                    false,
+                    deviceStopwatch.Elapsed,
+                    $"Device processing exception: {ex.Message}");
+
+                _logger.LogError(ex, "? Failed to process device {DeviceName}: {Error}", deviceName, ex.Message);
                 return false;
             }
         }
 
-        private async Task ProcessDeviceAsync(Device entraDevice, SemaphoreSlim semaphore)
+        private bool ValidateConfiguration()
         {
-            await semaphore.WaitAsync();
+            if (_appSettings.ExtensionAttributeMappings == null || !_appSettings.ExtensionAttributeMappings.Any())
+            {
+                _logger.LogError("? No extension attribute mappings configured");
+                return false;
+            }
+
+            // Check for duplicate extension attributes
+            var duplicateAttributes = _appSettings.ExtensionAttributeMappings
+                .GroupBy(m => m.ExtensionAttribute)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .ToList();
+
+            if (duplicateAttributes.Any())
+            {
+                _logger.LogError("? Duplicate extension attribute mappings found: {DuplicateAttributes}",
+                    string.Join(", ", duplicateAttributes));
+                return false;
+            }
+
+            // Validate that at least one data source is enabled
+            if (!_appSettings.DataSources.EnableActiveDirectory && !_appSettings.DataSources.EnableIntune)
+            {
+                _logger.LogError("? At least one data source (Active Directory or Intune) must be enabled");
+                return false;
+            }
+
+            _logger.LogInformation("? Configuration validation passed");
+            return true;
+        }
+
+        private List<ExtensionAttributeMapping> GetEnabledMappings()
+        {
+            return _appSettings.ExtensionAttributeMappings.Where(mapping =>
+                (mapping.DataSource == DataSourceType.ActiveDirectory && _appSettings.DataSources.EnableActiveDirectory) ||
+                (mapping.DataSource == DataSourceType.Intune && _appSettings.DataSources.EnableIntune)
+            ).ToList();
+        }
+
+        private async Task<bool> ProcessSingleMappingAsync(Device entraDevice, ExtensionAttributeMapping mapping)
+        {
+            var deviceName = entraDevice.DisplayName ?? "Unknown";
             
             try
             {
-                if (string.IsNullOrEmpty(entraDevice.DeviceId))
+                string? sourceValue = null;
+
+                // Get source value based on data source type
+                if (mapping.DataSource == DataSourceType.ActiveDirectory && _appSettings.DataSources.EnableActiveDirectory)
                 {
-                    _logger.LogWarning("Skipping device with null DeviceId: {DisplayName}", entraDevice.DisplayName);
-                    return;
+                    sourceValue = await GetActiveDirectoryValueAsync(deviceName, mapping);
+                }
+                else if (mapping.DataSource == DataSourceType.Intune && _appSettings.DataSources.EnableIntune)
+                {
+                    sourceValue = await GetIntuneValueAsync(deviceName, mapping);
                 }
 
-                _logger.LogDebug("Processing device: {DisplayName} (DeviceId: {DeviceId})", entraDevice.DisplayName, entraDevice.DeviceId);
-
-                // Process each extension attribute mapping
-                foreach (var mapping in _appSettings.ExtensionAttributeMappings)
+                if (sourceValue == null)
                 {
-                    await ProcessExtensionAttributeMapping(entraDevice, mapping);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error processing device {DisplayName}: {Error}", entraDevice.DisplayName, ex.Message);
-            }
-            finally
-            {
-                semaphore.Release();
-            }
-        }
-
-        private async Task<bool> ProcessExtensionAttributeMapping(Device entraDevice, ExtensionAttributeMapping mapping)
-        {
-            try
-            {
-                _logger.LogDebug("Processing mapping: {Mapping} for device: {DeviceName}", 
-                    mapping.ToString(), entraDevice.DisplayName);
-
-                // Check if the data source is enabled
-                if (mapping.DataSource == DataSourceType.ActiveDirectory && !_appSettings.DataSources.EnableActiveDirectory)
-                {
-                    _logger.LogDebug("Skipping AD mapping for {ExtensionAttribute} - AD disabled", mapping.ExtensionAttribute);
-                    return false;
-                }
-
-                if (mapping.DataSource == DataSourceType.Intune && !_appSettings.DataSources.EnableIntune)
-                {
-                    _logger.LogDebug("Skipping Intune mapping for {ExtensionAttribute} - Intune disabled", mapping.ExtensionAttribute);
-                    return false;
-                }
-
-                // Get the current value from Entra AD
-                var currentValue = await _entraADHelper.GetExtensionAttribute(entraDevice.DeviceId!, mapping.ExtensionAttribute);
-                
-                // Get the value from the appropriate data source
-                var sourceValue = await GetSourceValue(entraDevice, mapping);
-                
-                if (string.IsNullOrEmpty(sourceValue))
-                {
+                    _logger.LogDebug("No source value found for {ExtensionAttribute} from {DataSource} for device {DeviceName}",
+                        mapping.ExtensionAttribute, mapping.DataSource, deviceName);
                     sourceValue = mapping.DefaultValue;
-                    _logger.LogDebug("Using default value for {ExtensionAttribute}: {DefaultValue}", 
-                        mapping.ExtensionAttribute, mapping.DefaultValue);
                 }
 
                 // Apply regex if specified
                 if (!string.IsNullOrEmpty(mapping.Regex) && !string.IsNullOrEmpty(sourceValue))
                 {
-                    sourceValue = ApplyRegex(sourceValue, mapping.Regex, mapping.DefaultValue, entraDevice.DisplayName);
+                    sourceValue = ApplyRegex(sourceValue, mapping.Regex) ?? mapping.DefaultValue;
                 }
 
-                // Check if the value needs to be updated
-                if (!string.Equals(currentValue, sourceValue, StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogInformation("Updating {ExtensionAttribute} for device {DeviceName}: '{OldValue}' -> '{NewValue}' (Source: {DataSource})",
-                        mapping.ExtensionAttribute, entraDevice.DisplayName, currentValue ?? "null", sourceValue ?? "null", mapping.DataSource);
+                // Ensure we have a value (use default if still null)
+                sourceValue ??= mapping.DefaultValue;
 
-                    // Update the extension attribute
-                    var result = await _entraADHelper.SetExtensionAttributeValue(entraDevice.DeviceId!, mapping.ExtensionAttribute, sourceValue ?? string.Empty);
+                if (string.IsNullOrEmpty(sourceValue))
+                {
+                    _logger.LogWarning("?? No value available for {ExtensionAttribute} for device {DeviceName} (no default value configured)",
+                        mapping.ExtensionAttribute, deviceName);
                     
-                    if (!string.IsNullOrEmpty(result))
-                    {
-                        _logger.LogInformation("Successfully updated {ExtensionAttribute} for device {DeviceName}", 
-                            mapping.ExtensionAttribute, entraDevice.DisplayName);
-                        return true;
-                    }
-                    else
-                    {
-                        _logger.LogError("Failed to update {ExtensionAttribute} for device {DeviceName}", 
-                            mapping.ExtensionAttribute, entraDevice.DisplayName);
-                        return false;
-                    }
+                    await _auditLogger.LogDeviceProcessingAsync(
+                        deviceName,
+                        mapping.ExtensionAttribute,
+                        null,
+                        null,
+                        false,
+                        TimeSpan.Zero,
+                        "No value available and no default value configured");
+                        
+                    return false;
+                }
+
+                // Get current extension attribute value
+                var currentValue = GetExtensionAttributeValue(entraDevice, mapping.ExtensionAttribute);
+
+                // Only update if value has changed
+                if (currentValue == sourceValue)
+                {
+                    _logger.LogDebug("? {ExtensionAttribute} for device {DeviceName} already has correct value: {Value}",
+                        mapping.ExtensionAttribute, deviceName, sourceValue);
+                    
+                    await _auditLogger.LogDeviceProcessingAsync(
+                        deviceName,
+                        mapping.ExtensionAttribute,
+                        currentValue,
+                        sourceValue,
+                        true,
+                        TimeSpan.Zero,
+                        null);
+                        
+                    return true;
+                }
+
+                // Update the extension attribute
+                _logger.LogInformation("?? Updating {ExtensionAttribute} for device {DeviceName}: '{OldValue}' -> '{NewValue}'",
+                    mapping.ExtensionAttribute, deviceName, currentValue ?? "null", sourceValue);
+
+                var updateStopwatch = Stopwatch.StartNew();
+                var updateResult = await _entraADHelper.SetExtensionAttributeValue(
+                    entraDevice.Id!, mapping.ExtensionAttribute, sourceValue);
+                updateStopwatch.Stop();
+
+                if (!string.IsNullOrEmpty(updateResult))
+                {
+                    await _auditLogger.LogDeviceProcessingAsync(
+                        deviceName,
+                        mapping.ExtensionAttribute,
+                        currentValue,
+                        sourceValue,
+                        true,
+                        updateStopwatch.Elapsed);
+
+                    _logger.LogInformation("? Successfully updated {ExtensionAttribute} for device {DeviceName}",
+                        mapping.ExtensionAttribute, deviceName);
+                    return true;
                 }
                 else
                 {
-                    _logger.LogDebug("No update needed for {ExtensionAttribute} on device {DeviceName}. Current value: {CurrentValue}",
-                        mapping.ExtensionAttribute, entraDevice.DisplayName, currentValue);
-                    return true; // No update needed, but not an error
+                    await _auditLogger.LogDeviceProcessingAsync(
+                        deviceName,
+                        mapping.ExtensionAttribute,
+                        currentValue,
+                        sourceValue,
+                        false,
+                        updateStopwatch.Elapsed,
+                        "Failed to update extension attribute via Graph API");
+
+                    _logger.LogError("? Failed to update {ExtensionAttribute} for device {DeviceName}",
+                        mapping.ExtensionAttribute, deviceName);
+                    return false;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing extension attribute mapping {ExtensionAttribute} for device {DeviceName}: {Error}",
-                    mapping.ExtensionAttribute, entraDevice.DisplayName, ex.Message);
+                await _auditLogger.LogDeviceProcessingAsync(
+                    deviceName,
+                    mapping.ExtensionAttribute,
+                    null,
+                    null,
+                    false,
+                    TimeSpan.Zero,
+                    $"Exception during mapping processing: {ex.Message}");
+
+                _logger.LogError(ex, "? Exception processing mapping {ExtensionAttribute} for device {DeviceName}: {Error}",
+                    mapping.ExtensionAttribute, deviceName, ex.Message);
                 return false;
             }
         }
 
-        private async Task<string?> GetSourceValue(Device entraDevice, ExtensionAttributeMapping mapping)
+        private async Task<string?> GetActiveDirectoryValueAsync(string deviceName, ExtensionAttributeMapping mapping)
         {
             try
             {
-                return mapping.DataSource switch
+                // AD Helper doesn't have a GetComputersAsync method, we need to implement a different approach
+                // For now, we'll try to find the device by name using directory search
+                await foreach (var adEntry in _adHelper.GetDirectoryEntriesAsyncEnumerable(""))
                 {
-                    DataSourceType.ActiveDirectory => await GetActiveDirectoryValue(entraDevice, mapping),
-                    DataSourceType.Intune => await GetIntuneValue(entraDevice, mapping),
-                    _ => throw new ArgumentException($"Unsupported data source: {mapping.DataSource}")
-                };
+                    if (string.Equals(adEntry.Name, $"CN={deviceName}", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return GetPropertyValue(adEntry.Properties, mapping.SourceAttribute);
+                    }
+                }
+
+                _logger.LogDebug("Device {DeviceName} not found in Active Directory", deviceName);
+                return null;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting source value for {DataSource}.{SourceAttribute}: {Error}",
-                    mapping.DataSource, mapping.SourceAttribute, ex.Message);
-                return mapping.DefaultValue;
+                _logger.LogError(ex, "Failed to get Active Directory value for {DeviceName}: {Error}", deviceName, ex.Message);
+                return null;
             }
         }
 
-        private async Task<string?> GetActiveDirectoryValue(Device entraDevice, ExtensionAttributeMapping mapping)
+        private async Task<string?> GetIntuneValueAsync(string deviceName, ExtensionAttributeMapping mapping)
         {
             try
             {
-                if (string.IsNullOrEmpty(entraDevice.DisplayName))
-                {
-                    _logger.LogWarning("Device display name is null for AD lookup");
-                    return mapping.DefaultValue;
-                }
+                // Try to get device details by name
+                var intuneDevice = await _intuneHelper.GetDeviceDetailsbyName(deviceName);
 
-                // Find the AD computer object by name
-                var adComputer = await _adHelper.GetDirectoryEntryWithAttributeAsync(
-                    $"CN={entraDevice.DisplayName}", mapping.SourceAttribute);
-
-                if (adComputer != null)
-                {
-                    var value = await _adHelper.GetComputerAttributeAsync(adComputer.Path, mapping.SourceAttribute);
-                    _logger.LogDebug("Retrieved AD value for {SourceAttribute}: {Value}",
-                        mapping.SourceAttribute, value ?? "null");
-                    return value;
-                }
-                else
-                {
-                    _logger.LogDebug("AD computer not found for device: {DisplayName}", entraDevice.DisplayName);
-                    return mapping.DefaultValue;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting AD value for device {DisplayName}: {Error}",
-                    entraDevice.DisplayName, ex.Message);
-                return mapping.DefaultValue;
-            }
-        }
-
-        private async Task<string?> GetIntuneValue(Device entraDevice, ExtensionAttributeMapping mapping)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(entraDevice.DeviceId))
-                {
-                    _logger.LogWarning("Device ID is null for Intune lookup");
-                    return mapping.DefaultValue;
-                }
-
-                // Find corresponding Intune device
-                var intuneDevice = await _intuneHelper.GetDeviceDetailsByEntraDeviceId(entraDevice.DeviceId);
-                
                 if (intuneDevice == null)
                 {
-                    // Try to find by device name as fallback
-                    if (!string.IsNullOrEmpty(entraDevice.DisplayName))
-                    {
-                        intuneDevice = await _intuneHelper.FindDeviceByComputerName(entraDevice.DisplayName);
-                    }
-                    
-                    if (intuneDevice == null)
-                    {
-                        _logger.LogDebug("No corresponding Intune device found for Entra device: {DisplayName}", entraDevice.DisplayName);
-                        return mapping.DefaultValue;
-                    }
+                    _logger.LogDebug("Device {DeviceName} not found in Intune", deviceName);
+                    return null;
                 }
 
-                string? value = null;
-
-                if (mapping.UseHardwareInfo && !string.IsNullOrEmpty(intuneDevice.Id))
+                // If hardware info is requested, get hardware information
+                if (mapping.UseHardwareInfo)
                 {
-                    // Get hardware information
-                    var hardwareInfo = await _intuneHelper.GetDeviceHardwareInformation(intuneDevice.Id);
-                    if (hardwareInfo.ContainsKey(mapping.SourceAttribute.ToLowerInvariant()))
+                    var hardwareInfo = await _intuneHelper.GetDeviceHardwareInformationByName(deviceName);
+                    if (hardwareInfo.TryGetValue(mapping.SourceAttribute, out var hardwareValue))
                     {
-                        value = hardwareInfo[mapping.SourceAttribute.ToLowerInvariant()];
+                        return hardwareValue;
                     }
                 }
-                else
-                {
-                    // Get value from the managed device object
-                    value = ExtractIntuneDeviceValue(intuneDevice, mapping.SourceAttribute);
-                }
 
-                _logger.LogDebug("Retrieved Intune value for {SourceAttribute}: {Value}",
-                    mapping.SourceAttribute, value ?? "null");
-
-                return value ?? mapping.DefaultValue;
+                // Otherwise get property from managed device
+                return GetPropertyValue(intuneDevice, mapping.SourceAttribute);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting Intune value for device {DisplayName}: {Error}",
-                    entraDevice.DisplayName, ex.Message);
-                return mapping.DefaultValue;
-            }
-        }
-
-        private string? ExtractIntuneDeviceValue(ManagedDevice device, string propertyName)
-        {
-            try
-            {
-                // Direct property mapping for Intune devices
-                return propertyName.ToLowerInvariant() switch
-                {
-                    "devicename" => device.DeviceName,
-                    "operatingsystem" => device.OperatingSystem,
-                    "osversion" => device.OsVersion,
-                    "serialnumber" => device.SerialNumber,
-                    "manufacturer" => device.Manufacturer,
-                    "model" => device.Model,
-                    "compliancestate" => device.ComplianceState?.ToString(),
-                    "lastsyncdate" => device.LastSyncDateTime?.ToString("yyyy-MM-dd"),
-                    "lastsynctime" => device.LastSyncDateTime?.ToString("HH:mm:ss"),
-                    "lastsyncfull" => device.LastSyncDateTime?.ToString("yyyy-MM-dd HH:mm:ss"),
-                    "deviceid" => device.Id,
-                    "azureaddeviceid" => device.AzureADDeviceId,
-                    "userprincipalname" => device.UserPrincipalName,
-                    "enrolleddate" => device.EnrolledDateTime?.ToString("yyyy-MM-dd"),
-                    "manageddeviceownertype" => device.ManagedDeviceOwnerType?.ToString(),
-                    "managementagent" => device.ManagementAgent?.ToString(),
-                    "totalstorage" => FormatStorageSize(device.TotalStorageSpaceInBytes),
-                    "totalstoragegb" => FormatStorageSizeGB(device.TotalStorageSpaceInBytes),
-                    "freestorage" => FormatStorageSize(device.FreeStorageSpaceInBytes),
-                    "freestoragegb" => FormatStorageSizeGB(device.FreeStorageSpaceInBytes),
-                    "phonenumber" => device.PhoneNumber,
-                    "wifimacaddress" => device.WiFiMacAddress,
-                    "imei" => device.Imei,
-                    "meid" => device.Meid,
-                    "subscribercarrier" => device.SubscriberCarrier,
-                    _ => GetPropertyByReflection(device, propertyName)
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error extracting Intune device value for property {PropertyName}: {Error}", propertyName, ex.Message);
+                _logger.LogError(ex, "Failed to get Intune value for {DeviceName}: {Error}", deviceName, ex.Message);
                 return null;
             }
         }
 
-        private string? ApplyRegex(string value, string regexPattern, string? defaultValue, string? deviceName)
+        private string? GetPropertyValue(object source, string propertyName)
         {
             try
             {
-                var regex = new Regex(regexPattern);
-                var match = regex.Match(value);
-                
+                if (source == null) return null;
+
+                var property = source.GetType().GetProperty(propertyName, System.Reflection.BindingFlags.IgnoreCase | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                if (property == null)
+                {
+                    _logger.LogDebug("Property {PropertyName} not found on {SourceType}", propertyName, source.GetType().Name);
+                    return null;
+                }
+
+                var value = property.GetValue(source);
+                return value?.ToString();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get property value for {PropertyName}: {Error}", propertyName, ex.Message);
+                return null;
+            }
+        }
+
+        private string? ApplyRegex(string input, string pattern)
+        {
+            try
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(input, pattern);
                 if (match.Success)
                 {
-                    // Use the first capture group if available, otherwise the whole match
-                    var extractedValue = match.Groups.Count > 1 ? match.Groups[1].Value : match.Value;
-                    _logger.LogDebug("Regex applied successfully. Original: {Original}, Extracted: {Extracted}", 
-                        value, extractedValue);
-                    return extractedValue;
+                    // If there are named groups, try to get the first one
+                    if (match.Groups.Count > 1)
+                    {
+                        for (int i = 1; i < match.Groups.Count; i++)
+                        {
+                            if (match.Groups[i].Success)
+                            {
+                                return match.Groups[i].Value;
+                            }
+                        }
+                    }
+                    // Otherwise return the entire match
+                    return match.Value;
                 }
-                else
-                {
-                    _logger.LogWarning("Regex pattern '{Pattern}' did not match value '{Value}' for device {DeviceName}", 
-                        regexPattern, value, deviceName);
-                    return defaultValue;
-                }
-            }
-            catch (Exception regexEx)
-            {
-                _logger.LogError(regexEx, "Error applying regex pattern '{Pattern}' to value '{Value}': {Error}", 
-                    regexPattern, value, regexEx.Message);
-                return defaultValue;
-            }
-        }
 
-        private string? GetPropertyByReflection(object obj, string propertyName)
-        {
-            try
-            {
-                var property = obj.GetType().GetProperty(propertyName, 
-                    System.Reflection.BindingFlags.IgnoreCase | 
-                    System.Reflection.BindingFlags.Public | 
-                    System.Reflection.BindingFlags.Instance);
-                
-                if (property != null)
-                {
-                    var value = property.GetValue(obj);
-                    return value?.ToString();
-                }
-                
+                _logger.LogDebug("Regex pattern '{Pattern}' did not match input '{Input}'", pattern, input);
                 return null;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting property {PropertyName} by reflection: {Error}", propertyName, ex.Message);
+                _logger.LogError(ex, "Failed to apply regex pattern '{Pattern}' to input '{Input}': {Error}", pattern, input, ex.Message);
                 return null;
             }
         }
 
-        private string? FormatStorageSize(long? bytes)
+        private string? GetExtensionAttributeValue(Device device, string extensionAttribute)
         {
-            if (!bytes.HasValue || bytes.Value <= 0)
+            try
+            {
+                if (device.AdditionalData == null) return null;
+
+                return device.AdditionalData.TryGetValue(extensionAttribute, out var value) ? value?.ToString() : null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get extension attribute {ExtensionAttribute} value: {Error}", extensionAttribute, ex.Message);
                 return null;
-
-            const double gb = 1024 * 1024 * 1024;
-            const double mb = 1024 * 1024;
-            const double kb = 1024;
-
-            if (bytes >= gb)
-                return $"{bytes.Value / gb:F2} GB";
-            else if (bytes >= mb)
-                return $"{bytes.Value / mb:F2} MB";
-            else if (bytes >= kb)
-                return $"{bytes.Value / kb:F2} KB";
-            else
-                return $"{bytes.Value} B";
+            }
         }
 
-        private string? FormatStorageSizeGB(long? bytes)
+        private async Task ExportResultsAsync(List<Device> processedDevices, int processedCount, int failedCount)
         {
-            if (!bytes.HasValue || bytes.Value <= 0)
-                return null;
+            try
+            {
+                if (string.IsNullOrEmpty(_appSettings.ExportPath))
+                {
+                    _logger.LogDebug("Export path not configured, skipping export");
+                    return;
+                }
 
-            const double gb = 1024 * 1024 * 1024;
-            return $"{bytes.Value / gb:F0}";
+                var exportStopwatch = Stopwatch.StartNew();
+                
+                Directory.CreateDirectory(_appSettings.ExportPath);
+                var timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                var fileName = $"{_appSettings.ExportFileNamePrefix}-{timestamp}.csv";
+                var filePath = Path.Combine(_appSettings.ExportPath, fileName);
+
+                _logger.LogInformation("?? Exporting results to: {FilePath}", filePath);
+
+                var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+                {
+                    HasHeaderRecord = true,
+                };
+
+                using var writer = new StringWriter();
+                using var csv = new CsvWriter(writer, config);
+
+                // Write header
+                csv.WriteField("DeviceName");
+                csv.WriteField("DeviceId");
+                csv.WriteField("ProcessingStatus");
+                csv.WriteField("Timestamp");
+                foreach (var mapping in _appSettings.ExtensionAttributeMappings)
+                {
+                    csv.WriteField($"{mapping.ExtensionAttribute}_Value");
+                    csv.WriteField($"{mapping.ExtensionAttribute}_Source");
+                }
+                csv.NextRecord();
+
+                // Write data
+                foreach (var device in processedDevices)
+                {
+                    csv.WriteField(device.DisplayName ?? "Unknown");
+                    csv.WriteField(device.Id ?? "Unknown");
+                    csv.WriteField("Processed"); // We could track individual device status if needed
+                    csv.WriteField(DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC"));
+
+                    foreach (var mapping in _appSettings.ExtensionAttributeMappings)
+                    {
+                        var value = GetExtensionAttributeValue(device, mapping.ExtensionAttribute);
+                        csv.WriteField(value ?? "");
+                        csv.WriteField(mapping.DataSource.ToString());
+                    }
+                    csv.NextRecord();
+                }
+
+                await File.WriteAllTextAsync(filePath, writer.ToString());
+                exportStopwatch.Stop();
+
+                await _auditLogger.LogSystemEventAsync(
+                    AuditEventType.DataExport,
+                    $"Results exported to {fileName}",
+                    new Dictionary<string, object>
+                    {
+                        ["FilePath"] = filePath,
+                        ["DeviceCount"] = processedDevices.Count,
+                        ["ProcessedCount"] = processedCount,
+                        ["FailedCount"] = failedCount,
+                        ["ExportDurationMs"] = exportStopwatch.ElapsedMilliseconds
+                    });
+
+                _logger.LogInformation("? Results exported successfully to: {FilePath} (took {ElapsedTime})", 
+                    filePath, exportStopwatch.Elapsed);
+            }
+            catch (Exception ex)
+            {
+                await _auditLogger.LogSystemEventAsync(
+                    AuditEventType.DataExport,
+                    $"Export failed: {ex.Message}",
+                    new Dictionary<string, object> { ["Error"] = ex.Message });
+
+                _logger.LogError(ex, "? Failed to export results: {Error}", ex.Message);
+            }
         }
     }
 }
