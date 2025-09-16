@@ -128,10 +128,10 @@ namespace ExtensionAttributes.Automation.WorkerSvc.Services
             Console.WriteLine();
             Console.WriteLine("Web Dashboard:");
             Console.WriteLine("  When using --web mode, the following endpoints are available:");
-            Console.WriteLine("  • Dashboard:          http://localhost:5000");
-            Console.WriteLine("  • Health Checks UI:   http://localhost:5000/health-ui");
-            Console.WriteLine("  • API Documentation:  http://localhost:5000/api-docs");
-            Console.WriteLine("  • REST API:           http://localhost:5000/api/status/*");
+            Console.WriteLine("  ?? Dashboard:          http://localhost:5000");
+            Console.WriteLine("  ?? Health Checks UI:   http://localhost:5000/health-ui");
+            Console.WriteLine("  ?? API Documentation:  http://localhost:5000/api-docs");
+            Console.WriteLine("  ?? REST API:           http://localhost:5000/api/status/*");
         }
     }
 
