@@ -6,12 +6,14 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Net.Http;
 using System.Text.Json.Serialization;
+using Serilog;
 
 namespace Azure.Automation.Intune
 {
     public class IntuneHelper : IIntuneHelper
     {
         private readonly ILogger<IIntuneHelper> _logger;
+        private readonly ILogger _cmtraceLogger; // CMTrace-optimized logger
         private readonly GraphServiceClient _graphServiceClient;
         private readonly HttpClient _httpClient;
         private readonly string _baseUrl = "https://graph.microsoft.com";
@@ -22,6 +24,11 @@ namespace Azure.Automation.Intune
             _graphServiceClient = graphClient;
             _httpClient = httpClientFactory.CreateClient("GraphAPI");
             
+            // Create component-specific logger for CMTrace
+            _cmtraceLogger = Log.ForContext("Component", "IntuneHelper")
+                               .ForContext<IntuneHelper>();
+            
+            _cmtraceLogger.Information("IntuneHelper initialized with authenticated REST API support");
             _logger.LogInformation("IntuneHelper initialized with authenticated REST API support.");
         }
 
@@ -54,12 +61,26 @@ namespace Azure.Automation.Intune
         {
             try
             {
+                _cmtraceLogger.Debug("Starting device details retrieval for device ID: {DeviceId}", deviceId);
                 _logger.LogDebug("Getting device details for device ID: {DeviceId}", deviceId);
+                
                 var device = await _graphServiceClient.DeviceManagement.ManagedDevices[deviceId].GetAsync();
+                
+                if (device != null)
+                {
+                    _cmtraceLogger.Information("Successfully retrieved device details - Name: {DeviceName}, OS: {OS}, Compliance: {ComplianceState}", 
+                        device.DeviceName, device.OperatingSystem, device.ComplianceState);
+                }
+                else
+                {
+                    _cmtraceLogger.Warning("Device not found for ID: {DeviceId}", deviceId);
+                }
+                
                 return device;
             }
             catch (Exception ex)
             {
+                _cmtraceLogger.Error(ex, "Failed to retrieve device details for ID: {DeviceId} - {ErrorMessage}", deviceId, ex.Message);
                 _logger.LogError(ex, "Error getting device details for device ID: {DeviceId}", deviceId);
                 return null;
             }
@@ -761,16 +782,23 @@ namespace Azure.Automation.Intune
                     var json = JsonSerializer.Serialize(body, jsonOptions);
                     request.Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
                     
+                    _cmtraceLogger.Debug("REST API request body for {Endpoint}: {RequestBody}", endpoint, json);
                     _logger.LogDebug("REST API request body: {RequestBody}", json);
                 }
 
+                _cmtraceLogger.Debug("Making authenticated Graph API REST call: {Method} {Uri}", method, requestUri);
                 _logger.LogDebug("Making authenticated Graph API REST call: {Method} {Uri}", method, requestUri);
 
+                var stopwatch = System.Diagnostics.Stopwatch.StartNew();
                 var response = await _httpClient.SendAsync(request);
+                stopwatch.Stop();
                 
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
+                    
+                    _cmtraceLogger.Information("Graph API REST call succeeded: {Method} {Endpoint} - Status: {StatusCode}, Duration: {Duration}ms", 
+                        method, endpoint, response.StatusCode, stopwatch.ElapsedMilliseconds);
                     _logger.LogDebug("Graph API REST call successful: {StatusCode}", response.StatusCode);
                     
                     if (string.IsNullOrEmpty(content))
@@ -792,22 +820,32 @@ namespace Azure.Automation.Intune
                     
                     if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                     {
+                        _cmtraceLogger.Error("Authentication failed for REST API call: {Endpoint} - Status: {StatusCode}, Duration: {Duration}ms", 
+                            endpoint, response.StatusCode, stopwatch.ElapsedMilliseconds);
                         _logger.LogError("Authentication failed for REST API call: {Endpoint}. Check token validity and permissions.", endpoint);
                     }
                     else if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
                     {
+                        _cmtraceLogger.Warning("Insufficient permissions for REST API call: {Endpoint} - Status: {StatusCode}, Duration: {Duration}ms", 
+                            endpoint, response.StatusCode, stopwatch.ElapsedMilliseconds);
                         _logger.LogWarning("Insufficient permissions for REST API call: {Endpoint}. Required permissions may be missing.", endpoint);
                     }
                     else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                     {
+                        _cmtraceLogger.Debug("Resource not found for REST API call: {Endpoint} - Status: {StatusCode}", endpoint, response.StatusCode);
                         _logger.LogDebug("Resource not found for REST API call: {Endpoint}", endpoint);
                     }
                     else if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
                     {
+                        var retryAfter = response.Headers.RetryAfter?.Delta?.TotalSeconds ?? 0;
+                        _cmtraceLogger.Warning("Rate limited for REST API call: {Endpoint} - Status: {StatusCode}, Retry-After: {RetryAfter}s", 
+                            endpoint, response.StatusCode, retryAfter);
                         _logger.LogWarning("Rate limited for REST API call: {Endpoint}. Retry logic should handle this.", endpoint);
                     }
                     else
                     {
+                        _cmtraceLogger.Error("Graph API REST call failed: {Method} {Endpoint} - Status: {StatusCode}, Duration: {Duration}ms, Error: {ErrorContent}", 
+                            method, endpoint, response.StatusCode, stopwatch.ElapsedMilliseconds, errorContent);
                         _logger.LogWarning("Graph API REST call failed: {StatusCode} - {ReasonPhrase}. Error: {ErrorContent}", 
                             response.StatusCode, response.ReasonPhrase, errorContent);
                     }
@@ -817,21 +855,25 @@ namespace Azure.Automation.Intune
             }
             catch (HttpRequestException ex)
             {
+                _cmtraceLogger.Error(ex, "HTTP error making Graph API REST call to: {Endpoint} - {ErrorMessage}", endpoint, ex.Message);
                 _logger.LogError(ex, "HTTP error making Graph API REST call to: {Endpoint}", endpoint);
                 return default;
             }
             catch (JsonException ex)
             {
+                _cmtraceLogger.Error(ex, "JSON serialization error for Graph API REST call to: {Endpoint} - {ErrorMessage}", endpoint, ex.Message);
                 _logger.LogError(ex, "JSON serialization error for Graph API REST call to: {Endpoint}", endpoint);
                 return default;
             }
             catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
             {
+                _cmtraceLogger.Error(ex, "Timeout making Graph API REST call to: {Endpoint} - {ErrorMessage}", endpoint, ex.Message);
                 _logger.LogError(ex, "Timeout making Graph API REST call to: {Endpoint}", endpoint);
                 return default;
             }
             catch (Exception ex)
             {
+                _cmtraceLogger.Error(ex, "Unexpected error making Graph API REST call to: {Endpoint} - {ErrorMessage}", endpoint, ex.Message);
                 _logger.LogError(ex, "Unexpected error making Graph API REST call to: {Endpoint}", endpoint);
                 return default;
             }
