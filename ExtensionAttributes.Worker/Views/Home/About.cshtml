@@ -1,0 +1,233 @@
+@{
+    ViewData["Title"] = "About";
+    var version = ViewBag.Version;
+    var machineName = ViewBag.MachineName;
+    var osVersion = ViewBag.OsVersion;
+    var framework = ViewBag.Framework;
+    var startTime = ViewBag.StartTime as DateTime?;
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Header -->
+            <div class="card mb-4">
+                <div class="card-body text-center p-5">
+                    <i class="fas fa-cogs fa-5x mb-4" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>
+                    <h1 class="display-5 fw-bold mb-3">Extension Attributes Automation</h1>
+                    <p class="lead text-muted">
+                        Enterprise-grade automation for managing Entra AD extension attributes
+                    </p>
+                    <div class="mt-4">
+                        <span class="badge bg-primary fs-6">Version @version</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Information -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="fas fa-server me-2"></i>System Information</h5>
+                        </div>
+                        <div class="card-body">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-5">Machine Name:</dt>
+                                <dd class="col-sm-7"><code>@machineName</code></dd>
+                                
+                                <dt class="col-sm-5">OS Version:</dt>
+                                <dd class="col-sm-7">@osVersion</dd>
+                                
+                                <dt class="col-sm-5">.NET Version:</dt>
+                                <dd class="col-sm-7">@framework</dd>
+                                
+                                <dt class="col-sm-5">Start Time:</dt>
+                                <dd class="col-sm-7">
+                                    @if (startTime.HasValue)
+                                    {
+                                        @startTime.Value.ToString("yyyy-MM-dd HH:mm:ss")
+                                    }
+                                </dd>
+                                
+                                <dt class="col-sm-5">Uptime:</dt>
+                                <dd class="col-sm-7" id="uptime">Calculating...</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0"><i class="fas fa-puzzle-piece me-2"></i>Components</h5>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-unstyled mb-0">
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    ASP.NET Core MVC with Razor
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    SignalR for Real-Time Updates
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    Microsoft Graph API Integration
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    Active Directory Support
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    Comprehensive Audit Logging
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    Health Monitoring & Checks
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Features -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-star me-2"></i>Key Features</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary mb-3">Automation & Integration</h6>
+                            <ul>
+                                <li>Automated synchronization of extension attributes</li>
+                                <li>Multiple data source support (AD, Intune, Graph API)</li>
+                                <li>Configurable mapping rules with regex support</li>
+                                <li>Scheduled job execution with Quartz.NET</li>
+                                <li>Hardware information enrichment</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-success mb-3">Monitoring & Reporting</h6>
+                            <ul>
+                                <li>Real-time change tracking with SignalR</li>
+                                <li>Comprehensive audit logging</li>
+                                <li>Health checks and status monitoring</li>
+                                <li>REST API for programmatic access</li>
+                                <li>CSV export of audit logs</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Documentation Links -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-book me-2"></i>Documentation & Resources</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Quick Links</h6>
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <a href="/api-docs" class="text-decoration-none">
+                                        <i class="fas fa-book text-primary me-2"></i>API Documentation (Swagger)
+                                    </a>
+                                </li>
+                                <li class="mb-2">
+                                    <a href="/health-ui" class="text-decoration-none">
+                                        <i class="fas fa-heartbeat text-danger me-2"></i>Health Checks UI
+                                    </a>
+                                </li>
+                                <li class="mb-2">
+                                    <a href="@Url.Action("Dashboard", "Home")" class="text-decoration-none">
+                                        <i class="fas fa-tachometer-alt text-success me-2"></i>Real-Time Dashboard
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="mb-3">API Endpoints</h6>
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <code class="text-info">/api/status/health</code> - System health
+                                </li>
+                                <li class="mb-2">
+                                    <code class="text-info">/api/status/info</code> - System information
+                                </li>
+                                <li class="mb-2">
+                                    <code class="text-info">/api/audit/logs</code> - Audit logs
+                                </li>
+                                <li class="mb-2">
+                                    <code class="text-info">/hubs/audit</code> - SignalR hub
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Credits -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-heart me-2"></i>Credits & License</h5>
+                </div>
+                <div class="card-body text-center">
+                    <p class="mb-2">
+                        <strong>Extension Attributes Automation Community</strong>
+                    </p>
+                    <p class="text-muted small mb-3">
+                        Built with modern web technologies for enterprise IT automation
+                    </p>
+                    <div class="d-flex justify-content-center gap-3 flex-wrap">
+                        <span class="badge bg-light text-dark">ASP.NET Core</span>
+                        <span class="badge bg-light text-dark">SignalR</span>
+                        <span class="badge bg-light text-dark">Bootstrap 5</span>
+                        <span class="badge bg-light text-dark">Font Awesome</span>
+                        <span class="badge bg-light text-dark">Microsoft Graph</span>
+                    </div>
+                    <div class="mt-4">
+                        <p class="text-muted small mb-0">
+                            &copy; @DateTime.Now.Year Extension Attributes Automation Community
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Calculate and display uptime
+        function updateUptime() {
+            @if (startTime.HasValue)
+            {
+                <text>
+                const startTime = new Date('@startTime.Value.ToString("yyyy-MM-ddTHH:mm:ss")');
+                const now = new Date();
+                const uptime = now - startTime;
+                
+                const days = Math.floor(uptime / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((uptime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((uptime % (1000 * 60 * 60)) / (1000 * 60));
+                
+                let uptimeStr = '';
+                if (days > 0) uptimeStr += days + 'd ';
+                uptimeStr += hours + 'h ' + minutes + 'm';
+                
+                document.getElementById('uptime').textContent = uptimeStr;
+                </text>
+            }
+        }
+
+        // Update uptime every minute
+        updateUptime();
+        setInterval(updateUptime, 60000);
+    </script>
+}

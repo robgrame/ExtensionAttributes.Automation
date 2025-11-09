@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.SignalR;
+using ExtensionAttributes.Automation.WorkerSvc.Hubs;
 using System.Text.Json;
 using System.Diagnostics;
 
@@ -89,6 +91,7 @@ namespace ExtensionAttributes.Automation.WorkerSvc.Services
     public class AuditLogger : IAuditLogger
     {
         private readonly ILogger<AuditLogger> _logger;
+        private readonly IHubContext<AuditHub>? _hubContext;
         private readonly List<AuditLogEntry> _auditEntries;
         private readonly object _lockObject = new();
         private readonly string _auditFilePath;
@@ -96,9 +99,10 @@ namespace ExtensionAttributes.Automation.WorkerSvc.Services
         private readonly TimeSpan _flushInterval;
         private Timer? _flushTimer;
 
-        public AuditLogger(ILogger<AuditLogger> logger)
+        public AuditLogger(ILogger<AuditLogger> logger, IHubContext<AuditHub>? hubContext = null)
         {
             _logger = logger;
+            _hubContext = hubContext;
             _auditEntries = new List<AuditLogEntry>();
             _auditFilePath = Path.Combine(Path.GetTempPath(), "ExtensionAttributesAutomation", "Audit", $"audit-{DateTime.UtcNow:yyyy-MM-dd}.json");
             _maxEntriesInMemory = 1000;
@@ -110,7 +114,8 @@ namespace ExtensionAttributes.Automation.WorkerSvc.Services
             // Setup periodic flush timer
             _flushTimer = new Timer(FlushToFile, null, _flushInterval, _flushInterval);
 
-            _logger.LogInformation("AuditLogger initialized. Audit file: {AuditFilePath}", _auditFilePath);
+            _logger.LogInformation("AuditLogger initialized. Audit file: {AuditFilePath}, SignalR: {SignalREnabled}", 
+                _auditFilePath, hubContext != null);
         }
 
         public async Task LogAsync(AuditLogEntry entry)
@@ -141,6 +146,34 @@ namespace ExtensionAttributes.Automation.WorkerSvc.Services
                 // Log to structured logging as well
                 _logger.LogInformation("AUDIT: {EventType} | {DeviceName} | {Description} | Success: {Success} | Severity: {Severity}",
                     entry.EventType, entry.DeviceName, entry.Description, entry.Success, entry.Severity);
+
+                // Broadcast to SignalR clients if available
+                if (_hubContext != null)
+                {
+                    try
+                    {
+                        var auditEvent = new AuditEvent
+                        {
+                            EventId = entry.EventId,
+                            Timestamp = entry.Timestamp,
+                            EventType = entry.EventType.ToString(),
+                            Severity = entry.Severity.ToString(),
+                            DeviceName = entry.DeviceName,
+                            ExtensionAttribute = entry.ExtensionAttribute,
+                            Description = entry.Description,
+                            Success = entry.Success,
+                            User = entry.User,
+                            OldValue = entry.OldValue,
+                            NewValue = entry.NewValue
+                        };
+
+                        await _hubContext.Clients.All.SendAsync("ReceiveAuditEvent", auditEvent);
+                    }
+                    catch (Exception signalREx)
+                    {
+                        _logger.LogWarning(signalREx, "Failed to broadcast audit event via SignalR");
+                    }
+                }
 
                 await Task.CompletedTask;
             }

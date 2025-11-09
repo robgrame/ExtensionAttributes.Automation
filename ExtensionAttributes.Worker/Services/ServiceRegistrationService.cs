@@ -221,20 +221,25 @@ namespace ExtensionAttributes.Automation.WorkerSvc.Services
 
         private static void RegisterWebSpecificServices(IServiceCollection services, IConfiguration configuration)
         {
-            // Add ASP.NET Core services for Web Dashboard and API
-            services.AddControllers();
+            // Add ASP.NET Core MVC with views and Razor pages
+            services.AddControllersWithViews();
+            services.AddRazorPages();
             services.AddEndpointsApiExplorer();
+            
+            // Add SignalR for real-time updates
+            services.AddSignalR();
+            
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo 
                 { 
                     Title = "Extension Attributes Automation API", 
-                    Version = "v1.2",
+                    Version = "v1.3",
                     Description = "REST API for monitoring and controlling the Extension Attributes Automation Worker Service"
                 });
             });
 
-            // Configure CORS for dashboard
+            // Configure CORS for dashboard and SignalR
             services.AddCors(options =>
             {
                 options.AddDefaultPolicy(policyBuilder =>
@@ -253,7 +258,7 @@ namespace ExtensionAttributes.Automation.WorkerSvc.Services
                 options.AddHealthCheckEndpoint("Extension Attributes Worker", "/health");
             });
 
-            Log.Information("Registered web-specific services: Controllers, Swagger, CORS, Health Checks UI");
+            Log.Information("Registered web-specific services: MVC, Razor Pages, SignalR, Swagger, CORS, Health Checks UI");
         }
 
         public static void ConfigureWebApplication(WebApplication app)
@@ -270,7 +275,6 @@ namespace ExtensionAttributes.Automation.WorkerSvc.Services
             }
 
             // Enable static files for dashboard
-            app.UseDefaultFiles(); // This will serve index.html as default
             app.UseStaticFiles();
 
             app.UseRouting();
@@ -305,13 +309,18 @@ namespace ExtensionAttributes.Automation.WorkerSvc.Services
                 options.UIPath = "/health-ui";
             });
 
+            // Map SignalR hubs
+            app.MapHub<ExtensionAttributes.Automation.WorkerSvc.Hubs.AuditHub>("/hubs/audit");
+
             // Map API controllers
             app.MapControllers();
+            
+            // Map MVC controllers with views
+            app.MapControllerRoute(
+                name: "default",
+                pattern: "{controller=Home}/{action=Index}/{id?}");
 
-            // Redirect root to dashboard
-            app.MapGet("/", () => Results.Redirect("/index.html"));
-
-            Log.Information("Web application configured with dashboard at / and health checks UI at /health-ui");
+            Log.Information("Web application configured with MVC, SignalR hub at /hubs/audit, and health checks UI at /health-ui");
         }
 
         public static void ConfigureQuartz(HostApplicationBuilder builder)
