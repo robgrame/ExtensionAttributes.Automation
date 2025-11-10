@@ -1,0 +1,197 @@
+@{
+    ViewData["Title"] = "Welcome";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Hero Section -->
+            <div class="card mb-4 fade-in">
+                <div class="card-body text-center p-5">
+                    <i class="fas fa-cogs fa-5x mb-4" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>
+                    <h1 class="display-4 fw-bold mb-3">Extension Attributes Automation</h1>
+                    <p class="lead text-muted mb-4">
+                        Powerful automation for managing Entra AD extension attributes across Active Directory, Microsoft Intune, and Microsoft Graph.
+                    </p>
+                    <div class="d-flex justify-content-center gap-3 flex-wrap">
+                        <a href="@Url.Action("Dashboard", "Home")" class="btn btn-primary btn-lg">
+                            <i class="fas fa-tachometer-alt me-2"></i>Go to Dashboard
+                        </a>
+                        <a href="@Url.Action("Configuration", "Home")" class="btn btn-outline-primary btn-lg">
+                            <i class="fas fa-cog me-2"></i>View Configuration
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Features Grid -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-4 fade-in" style="animation-delay: 0.1s;">
+                    <div class="card h-100">
+                        <div class="card-body metric-card">
+                            <i class="fas fa-sync-alt text-primary"></i>
+                            <h5 class="card-title">Real-Time Sync</h5>
+                            <p class="card-text">
+                                Automatic synchronization of extension attributes with configurable schedules and triggers.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 fade-in" style="animation-delay: 0.2s;">
+                    <div class="card h-100">
+                        <div class="card-body metric-card">
+                            <i class="fas fa-chart-line text-success"></i>
+                            <h5 class="card-title">Live Monitoring</h5>
+                            <p class="card-text">
+                                Monitor changes in real-time with SignalR-powered dashboards and comprehensive audit logs.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 fade-in" style="animation-delay: 0.3s;">
+                    <div class="card h-100">
+                        <div class="card-body metric-card">
+                            <i class="fas fa-shield-alt text-info"></i>
+                            <h5 class="card-title">Enterprise Ready</h5>
+                            <p class="card-text">
+                                Secure authentication, health checks, and integration with enterprise identity systems.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-3 fade-in" style="animation-delay: 0.4s;">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-database fa-2x text-primary mb-2"></i>
+                            <div class="metric-value" id="dataSourceCount">-</div>
+                            <div class="metric-label">Data Sources</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 fade-in" style="animation-delay: 0.5s;">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-link fa-2x text-success mb-2"></i>
+                            <div class="metric-value" id="mappingCount">-</div>
+                            <div class="metric-label">Mappings</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 fade-in" style="animation-delay: 0.6s;">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-heartbeat fa-2x text-danger mb-2"></i>
+                            <div class="metric-value" id="healthStatus">-</div>
+                            <div class="metric-label">Health Status</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 fade-in" style="animation-delay: 0.7s;">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-clock fa-2x text-warning mb-2"></i>
+                            <div class="metric-value" id="uptime">-</div>
+                            <div class="metric-label">Uptime</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Links -->
+            <div class="card fade-in" style="animation-delay: 0.8s;">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-link me-2"></i>Quick Links</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <a href="@Url.Action("Dashboard", "Home")" class="text-decoration-none">
+                                        <i class="fas fa-tachometer-alt text-primary me-2"></i>Real-Time Dashboard
+                                    </a>
+                                </li>
+                                <li class="mb-2">
+                                    <a href="/audit.html" class="text-decoration-none">
+                                        <i class="fas fa-history text-info me-2"></i>Audit Logs
+                                    </a>
+                                </li>
+                                <li class="mb-2">
+                                    <a href="@Url.Action("Configuration", "Home")" class="text-decoration-none">
+                                        <i class="fas fa-cog text-success me-2"></i>Configuration Summary
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <a href="/health-ui" class="text-decoration-none">
+                                        <i class="fas fa-heartbeat text-danger me-2"></i>Health Checks UI
+                                    </a>
+                                </li>
+                                <li class="mb-2">
+                                    <a href="/api-docs" class="text-decoration-none">
+                                        <i class="fas fa-book text-warning me-2"></i>API Documentation
+                                    </a>
+                                </li>
+                                <li class="mb-2">
+                                    <a href="@Url.Action("About", "Home")" class="text-decoration-none">
+                                        <i class="fas fa-info-circle text-secondary me-2"></i>About & Version Info
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Load quick stats
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                // Load system info
+                const infoResponse = await fetch('/api/status/info');
+                const infoData = await infoResponse.json();
+                
+                // Update data source count
+                let dataSourceCount = 0;
+                if (infoData.configuration.adEnabled) dataSourceCount++;
+                if (infoData.configuration.intuneEnabled) dataSourceCount++;
+                document.getElementById('dataSourceCount').textContent = dataSourceCount;
+                
+                // Update mapping count
+                document.getElementById('mappingCount').textContent = infoData.configuration.mappingsCount || 0;
+                
+                // Update uptime
+                const startTime = new Date(infoData.application.startTime);
+                const uptime = new Date() - startTime;
+                const hours = Math.floor(uptime / (1000 * 60 * 60));
+                const minutes = Math.floor((uptime % (1000 * 60 * 60)) / (1000 * 60));
+                document.getElementById('uptime').innerHTML = `<small>${hours}h ${minutes}m</small>`;
+                
+                // Load health status
+                const healthResponse = await fetch('/api/status/health');
+                const healthData = await healthResponse.json();
+                
+                const statusEl = document.getElementById('healthStatus');
+                const status = healthData.status;
+                statusEl.textContent = status;
+                statusEl.className = 'metric-value ' + 
+                    (status === 'Healthy' ? 'text-success' : 
+                     status === 'Degraded' ? 'text-warning' : 'text-danger');
+                
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        });
+    </script>
+}

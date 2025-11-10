@@ -1,0 +1,325 @@
+@{
+    ViewData["Title"] = "Real-Time Dashboard";
+}
+
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-broadcast-tower me-2"></i>
+                        Real-Time Changes Dashboard
+                    </h4>
+                    <div>
+                        <span class="badge bg-success" id="connectionStatus">
+                            <i class="fas fa-circle me-1"></i>Connecting...
+                        </span>
+                        <button class="btn btn-sm btn-outline-light ms-2" onclick="clearEvents()">
+                            <i class="fas fa-trash me-1"></i>Clear
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        <i class="fas fa-info-circle me-1"></i>
+                        This dashboard shows changes to extension attributes as they happen in real-time using SignalR.
+                    </p>
+                    
+                    <!-- Live Statistics -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <div class="metric-value text-primary" id="totalEvents">0</div>
+                                    <div class="metric-label">Total Events</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <div class="metric-value text-success" id="successfulEvents">0</div>
+                                    <div class="metric-label">Successful</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <div class="metric-value text-danger" id="failedEvents">0</div>
+                                    <div class="metric-label">Failed</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <div class="metric-value text-info" id="devicesAffected">0</div>
+                                    <div class="metric-label">Devices Affected</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Event Stream -->
+                    <div class="card">
+                        <div class="card-header bg-dark text-white">
+                            <i class="fas fa-stream me-2"></i>Live Event Stream
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="eventStream" style="max-height: 500px; overflow-y: auto; background: #f8f9fa;">
+                                <div class="text-center text-muted p-5">
+                                    <i class="fas fa-hourglass-half fa-3x mb-3"></i>
+                                    <p>Waiting for events...</p>
+                                    <small>Events will appear here as they occur</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity Summary -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Recent Activity</h5>
+                </div>
+                <div class="card-body">
+                    <div id="recentActivity">
+                        <div class="text-center text-muted p-3">
+                            <p>Loading recent activity...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let connection;
+        let eventCount = 0;
+        let successCount = 0;
+        let failCount = 0;
+        let devicesSet = new Set();
+
+        // Initialize SignalR connection
+        async function initializeSignalR() {
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl("/hubs/audit")
+                .withAutomaticReconnect()
+                .build();
+
+            // Handle incoming audit events
+            connection.on("ReceiveAuditEvent", function (event) {
+                addEventToStream(event);
+                updateStatistics(event);
+            });
+
+            // Handle configuration updates
+            connection.on("ReceiveConfigurationUpdate", function (message) {
+                showNotification('Configuration Update', message, 'info');
+            });
+
+            // Connection state handlers
+            connection.onreconnecting(() => {
+                updateConnectionStatus('Reconnecting...', 'warning');
+            });
+
+            connection.onreconnected(() => {
+                updateConnectionStatus('Connected', 'success');
+            });
+
+            connection.onclose(() => {
+                updateConnectionStatus('Disconnected', 'danger');
+            });
+
+            try {
+                await connection.start();
+                updateConnectionStatus('Connected', 'success');
+                console.log('SignalR Connected');
+            } catch (err) {
+                console.error('SignalR Connection Error:', err);
+                updateConnectionStatus('Connection Failed', 'danger');
+                setTimeout(initializeSignalR, 5000); // Retry after 5 seconds
+            }
+        }
+
+        function updateConnectionStatus(text, type) {
+            const statusEl = document.getElementById('connectionStatus');
+            statusEl.innerHTML = `<i class="fas fa-circle me-1"></i>${text}`;
+            statusEl.className = `badge bg-${type}`;
+        }
+
+        function addEventToStream(event) {
+            const streamEl = document.getElementById('eventStream');
+            
+            // Remove placeholder if exists
+            if (streamEl.querySelector('.text-muted')) {
+                streamEl.innerHTML = '';
+            }
+
+            const eventDiv = document.createElement('div');
+            eventDiv.className = 'border-bottom p-3 event-item';
+            eventDiv.style.cursor = 'pointer';
+            eventDiv.onclick = () => viewEventDetail(event.EventId);
+
+            const timestamp = new Date(event.Timestamp).toLocaleString();
+            const successIcon = event.Success ? 
+                '<i class="fas fa-check-circle text-success"></i>' : 
+                '<i class="fas fa-times-circle text-danger"></i>';
+            
+            const severityClass = event.Severity === 'High' || event.Severity === 'Critical' ? 'text-danger' :
+                                 event.Severity === 'Medium' ? 'text-warning' : 'text-info';
+
+            eventDiv.innerHTML = `
+                <div class="d-flex align-items-start">
+                    <div class="me-3 fs-4">${successIcon}</div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>${event.EventType}</strong>
+                                <span class="badge ${severityClass} ms-2">${event.Severity}</span>
+                            </div>
+                            <small class="text-muted">${timestamp}</small>
+                        </div>
+                        <div class="mt-1">
+                            ${event.DeviceName ? `<span class="badge bg-secondary me-2">${event.DeviceName}</span>` : ''}
+                            ${event.ExtensionAttribute ? `<span class="badge bg-info">${event.ExtensionAttribute}</span>` : ''}
+                        </div>
+                        <p class="mb-0 mt-2 text-muted">${event.Description}</p>
+                        ${event.OldValue || event.NewValue ? `
+                            <div class="mt-2 small">
+                                ${event.OldValue ? `<div><strong>Old:</strong> ${event.OldValue}</div>` : ''}
+                                ${event.NewValue ? `<div><strong>New:</strong> ${event.NewValue}</div>` : ''}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+
+            // Add to top of stream
+            streamEl.insertBefore(eventDiv, streamEl.firstChild);
+
+            // Limit to 50 events
+            while (streamEl.children.length > 50) {
+                streamEl.removeChild(streamEl.lastChild);
+            }
+
+            // Animate
+            eventDiv.style.animation = 'fadeIn 0.5s';
+        }
+
+        function updateStatistics(event) {
+            eventCount++;
+            document.getElementById('totalEvents').textContent = eventCount;
+
+            if (event.Success) {
+                successCount++;
+                document.getElementById('successfulEvents').textContent = successCount;
+            } else {
+                failCount++;
+                document.getElementById('failedEvents').textContent = failCount;
+            }
+
+            if (event.DeviceName) {
+                devicesSet.add(event.DeviceName);
+                document.getElementById('devicesAffected').textContent = devicesSet.size;
+            }
+        }
+
+        function viewEventDetail(eventId) {
+            window.location.href = '@Url.Action("ChangeDetail", "Home")?id=' + eventId;
+        }
+
+        function clearEvents() {
+            const streamEl = document.getElementById('eventStream');
+            streamEl.innerHTML = `
+                <div class="text-center text-muted p-5">
+                    <i class="fas fa-hourglass-half fa-3x mb-3"></i>
+                    <p>Waiting for events...</p>
+                    <small>Events will appear here as they occur</small>
+                </div>
+            `;
+            eventCount = 0;
+            successCount = 0;
+            failCount = 0;
+            devicesSet.clear();
+            document.getElementById('totalEvents').textContent = '0';
+            document.getElementById('successfulEvents').textContent = '0';
+            document.getElementById('failedEvents').textContent = '0';
+            document.getElementById('devicesAffected').textContent = '0';
+        }
+
+        function showNotification(title, message, type) {
+            // Could use toast notifications here
+            console.log(`[${type.toUpperCase()}] ${title}: ${message}`);
+        }
+
+        // Load recent activity
+        async function loadRecentActivity() {
+            try {
+                const response = await fetch('/api/audit/logs?pageSize=10');
+                const data = await response.json();
+                
+                const activityEl = document.getElementById('recentActivity');
+                if (data.logs && data.logs.length > 0) {
+                    let html = '<div class="table-responsive"><table class="table table-sm">';
+                    html += '<thead><tr><th>Time</th><th>Event</th><th>Device</th><th>Status</th></tr></thead><tbody>';
+                    
+                    data.logs.forEach(log => {
+                        const time = new Date(log.Timestamp).toLocaleTimeString();
+                        const statusIcon = log.Success ? 
+                            '<i class="fas fa-check text-success"></i>' : 
+                            '<i class="fas fa-times text-danger"></i>';
+                        html += `
+                            <tr style="cursor: pointer;" onclick="viewEventDetail('${log.EventId}')">
+                                <td>${time}</td>
+                                <td>${log.EventType}</td>
+                                <td>${log.DeviceName || '-'}</td>
+                                <td>${statusIcon}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</tbody></table></div>';
+                    activityEl.innerHTML = html;
+                } else {
+                    activityEl.innerHTML = '<p class="text-muted text-center">No recent activity</p>';
+                }
+            } catch (error) {
+                console.error('Error loading recent activity:', error);
+                document.getElementById('recentActivity').innerHTML = 
+                    '<div class="alert alert-danger">Error loading recent activity</div>';
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSignalR();
+            loadRecentActivity();
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (connection) {
+                connection.stop();
+            }
+        });
+    </script>
+
+    <style>
+        .event-item {
+            transition: background-color 0.2s;
+        }
+        .event-item:hover {
+            background-color: #e9ecef;
+        }
+    </style>
+}

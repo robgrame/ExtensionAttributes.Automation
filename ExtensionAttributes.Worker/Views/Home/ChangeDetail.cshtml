@@ -1,0 +1,282 @@
+@{
+    ViewData["Title"] = "Change Detail";
+    var eventId = ViewBag.EventId as string;
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="@Url.Action("Index", "Home")">Home</a></li>
+                    <li class="breadcrumb-item"><a href="@Url.Action("Dashboard", "Home")">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Change Detail</li>
+                </ol>
+            </nav>
+
+            <!-- Event Detail Card -->
+            <div class="card mb-4" id="eventDetailCard">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-file-alt me-2"></i>
+                        Change Detail
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div id="eventDetail">
+                        <div class="text-center p-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-3 text-muted">Loading event details...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Related Events -->
+            <div class="card" id="relatedEventsCard" style="display: none;">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>
+                        Related Events
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="relatedEvents">
+                        <p class="text-muted">Loading related events...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const eventId = '@Html.Raw(eventId)';
+
+        async function loadEventDetail() {
+            try {
+                // In a real implementation, you would fetch this from an API endpoint
+                // For now, we'll search through recent audit logs
+                const response = await fetch('/api/audit/logs?pageSize=1000');
+                const data = await response.json();
+                
+                const event = data.logs.find(log => log.EventId === eventId);
+                
+                if (event) {
+                    displayEventDetail(event);
+                    loadRelatedEvents(event.DeviceName, event.ExtensionAttribute);
+                } else {
+                    document.getElementById('eventDetail').innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Event not found or has been archived.
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading event detail:', error);
+                document.getElementById('eventDetail').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-times-circle me-2"></i>
+                        Error loading event details: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function displayEventDetail(event) {
+            const timestamp = new Date(event.Timestamp).toLocaleString();
+            const successIcon = event.Success ? 
+                '<i class="fas fa-check-circle fa-3x text-success"></i>' : 
+                '<i class="fas fa-times-circle fa-3x text-danger"></i>';
+            
+            const severityClass = event.Severity === 'High' || event.Severity === 'Critical' ? 'danger' :
+                                 event.Severity === 'Medium' ? 'warning' : 'info';
+
+            let html = `
+                <div class="text-center mb-4">
+                    ${successIcon}
+                    <h3 class="mt-3">${event.EventType}</h3>
+                    <p class="text-muted">${timestamp}</p>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="text-muted mb-3">Event Information</h6>
+                                <dl class="row mb-0">
+                                    <dt class="col-sm-4">Event ID:</dt>
+                                    <dd class="col-sm-8"><code>${event.EventId}</code></dd>
+                                    
+                                    <dt class="col-sm-4">Event Type:</dt>
+                                    <dd class="col-sm-8"><span class="badge bg-primary">${event.EventType}</span></dd>
+                                    
+                                    <dt class="col-sm-4">Severity:</dt>
+                                    <dd class="col-sm-8"><span class="badge bg-${severityClass}">${event.Severity}</span></dd>
+                                    
+                                    <dt class="col-sm-4">Timestamp:</dt>
+                                    <dd class="col-sm-8">${timestamp}</dd>
+                                    
+                                    <dt class="col-sm-4">User:</dt>
+                                    <dd class="col-sm-8">${event.User || 'System'}</dd>
+                                    
+                                    <dt class="col-sm-4">Source:</dt>
+                                    <dd class="col-sm-8">${event.Source || '-'}</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="text-muted mb-3">Device & Attribute</h6>
+                                <dl class="row mb-0">
+                                    <dt class="col-sm-5">Device Name:</dt>
+                                    <dd class="col-sm-7">
+                                        ${event.DeviceName ? `<strong>${event.DeviceName}</strong>` : '<span class="text-muted">-</span>'}
+                                    </dd>
+                                    
+                                    <dt class="col-sm-5">Extension Attribute:</dt>
+                                    <dd class="col-sm-7">
+                                        ${event.ExtensionAttribute ? `<code>${event.ExtensionAttribute}</code>` : '<span class="text-muted">-</span>'}
+                                    </dd>
+                                    
+                                    <dt class="col-sm-5">Success:</dt>
+                                    <dd class="col-sm-7">
+                                        ${event.Success ? 
+                                            '<i class="fas fa-check text-success"></i> Yes' : 
+                                            '<i class="fas fa-times text-danger"></i> No'}
+                                    </dd>
+                                    
+                                    <dt class="col-sm-5">Duration:</dt>
+                                    <dd class="col-sm-7">
+                                        ${event.Duration ? Math.round(event.Duration.TotalMilliseconds) + ' ms' : '-'}
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-light mb-3">
+                    <div class="card-body">
+                        <h6 class="text-muted mb-3">Description</h6>
+                        <p class="mb-0">${event.Description}</p>
+                    </div>
+                </div>
+            `;
+
+            // Add value changes if present
+            if (event.OldValue || event.NewValue) {
+                html += `
+                    <div class="card bg-light mb-3">
+                        <div class="card-body">
+                            <h6 class="text-muted mb-3">Value Changes</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Old Value:</strong>
+                                    <div class="mt-2 p-2 bg-white rounded">
+                                        <code>${event.OldValue || '<em class="text-muted">None</em>'}</code>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>New Value:</strong>
+                                    <div class="mt-2 p-2 bg-white rounded">
+                                        <code class="text-success">${event.NewValue || '<em class="text-muted">None</em>'}</code>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Add error message if present
+            if (event.ErrorMessage) {
+                html += `
+                    <div class="alert alert-danger">
+                        <h6 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Error Details</h6>
+                        <pre class="mb-0">${event.ErrorMessage}</pre>
+                    </div>
+                `;
+            }
+
+            // Add action buttons
+            html += `
+                <div class="d-flex gap-2 mt-4">
+                    <a href="@Url.Action("Dashboard", "Home")" class="btn btn-primary">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                    </a>
+                    ${event.DeviceName ? `
+                        <a href="/audit.html?deviceName=${encodeURIComponent(event.DeviceName)}" class="btn btn-info">
+                            <i class="fas fa-desktop me-2"></i>View Device Logs
+                        </a>
+                    ` : ''}
+                    <button class="btn btn-secondary" onclick="window.print()">
+                        <i class="fas fa-print me-2"></i>Print
+                    </button>
+                </div>
+            `;
+
+            document.getElementById('eventDetail').innerHTML = html;
+        }
+
+        async function loadRelatedEvents(deviceName, extensionAttribute) {
+            if (!deviceName && !extensionAttribute) {
+                return;
+            }
+
+            try {
+                const params = new URLSearchParams({
+                    pageSize: 10
+                });
+                if (deviceName) params.append('deviceName', deviceName);
+                
+                const response = await fetch(`/api/audit/logs?${params}`);
+                const data = await response.json();
+                
+                const relatedLogs = data.logs.filter(log => 
+                    log.EventId !== eventId && 
+                    (log.DeviceName === deviceName || log.ExtensionAttribute === extensionAttribute)
+                );
+                
+                if (relatedLogs.length > 0) {
+                    document.getElementById('relatedEventsCard').style.display = 'block';
+                    
+                    let html = '<div class="list-group">';
+                    relatedLogs.forEach(log => {
+                        const time = new Date(log.Timestamp).toLocaleString();
+                        const icon = log.Success ? 'fa-check text-success' : 'fa-times text-danger';
+                        html += `
+                            <a href="@Url.Action("ChangeDetail", "Home")?id=${log.EventId}" 
+                               class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">
+                                        <i class="fas ${icon} me-2"></i>
+                                        ${log.EventType}
+                                    </h6>
+                                    <small class="text-muted">${time}</small>
+                                </div>
+                                <p class="mb-1">${log.Description}</p>
+                                ${log.DeviceName ? `<small><strong>Device:</strong> ${log.DeviceName}</small>` : ''}
+                            </a>
+                        `;
+                    });
+                    html += '</div>';
+                    
+                    document.getElementById('relatedEvents').innerHTML = html;
+                }
+            } catch (error) {
+                console.error('Error loading related events:', error);
+            }
+        }
+
+        // Load event on page load
+        document.addEventListener('DOMContentLoaded', loadEventDetail);
+    </script>
+}

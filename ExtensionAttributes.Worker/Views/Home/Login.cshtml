@@ -1,0 +1,221 @@
+@{
+    ViewData["Title"] = "Login";
+    Layout = null; // Use a minimal layout for login
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Extension Attributes Automation</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .login-container {
+            max-width: 450px;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .login-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .login-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .login-header i {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.9;
+        }
+
+        .login-body {
+            padding: 40px 30px;
+        }
+
+        .form-control {
+            border-radius: 10px;
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s;
+        }
+
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+
+        .btn-login {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .info-text {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        @@keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-container {
+            animation: fadeIn 0.5s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <i class="fas fa-shield-alt"></i>
+                <h2 class="mb-0">Extension Attributes</h2>
+                <p class="mb-0">Automation Portal</p>
+            </div>
+            <div class="login-body">
+                <div class="info-text">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <small>
+                        This application uses <strong>Windows Authentication</strong> or <strong>Entra AD (Azure AD)</strong> 
+                        for secure access. No manual login is required in production environments.
+                    </small>
+                </div>
+
+                <form id="loginForm" onsubmit="handleLogin(event)">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">
+                            <i class="fas fa-user me-2"></i>Username
+                        </label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="username" 
+                               placeholder="Enter your username"
+                               value="demo@@extension-attrs.local"
+                               readonly>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="password" class="form-label">
+                            <i class="fas fa-lock me-2"></i>Password
+                        </label>
+                        <input type="password" 
+                               class="form-control" 
+                               id="password" 
+                               placeholder="Enter your password"
+                               value="••••••••"
+                               readonly>
+                    </div>
+
+                    <div class="alert alert-info" role="alert">
+                        <i class="fas fa-shield-alt me-2"></i>
+                        <strong>Demo Mode:</strong> Authentication is handled automatically via Windows or Azure AD integration.
+                        Click continue to access the dashboard.
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-login w-100">
+                        <i class="fas fa-sign-in-alt me-2"></i>Continue to Dashboard
+                    </button>
+                </form>
+
+                <div class="text-center mt-4">
+                    <small class="text-muted">
+                        <i class="fas fa-lock me-1"></i>
+                        Secured with enterprise authentication
+                    </small>
+                </div>
+
+                <hr class="my-4">
+
+                <div class="text-center">
+                    <p class="mb-2"><strong>Quick Access</strong></p>
+                    <div class="d-grid gap-2">
+                        <a href="@Url.Action("Index", "Home")" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-home me-2"></i>Go to Home
+                        </a>
+                        <a href="@Url.Action("About", "Home")" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-info-circle me-2"></i>About
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <small class="text-white">
+                &copy; @DateTime.Now.Year Extension Attributes Automation Community
+            </small>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function handleLogin(event) {
+            event.preventDefault();
+            
+            // In a real implementation, this would authenticate with the backend
+            // For demo purposes, we'll just redirect to the dashboard
+            const username = document.getElementById('username').value;
+            
+            // Show loading state
+            const button = event.target.querySelector('button[type="submit"]');
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Authenticating...';
+            button.disabled = true;
+            
+            // Simulate authentication
+            setTimeout(() => {
+                // Store auth state (in production, this would be a secure cookie/token)
+                sessionStorage.setItem('authenticated', 'true');
+                sessionStorage.setItem('username', username);
+                
+                // Redirect to dashboard
+                window.location.href = '@Url.Action("Dashboard", "Home")';
+            }, 1000);
+        }
+
+        // Check if already authenticated
+        if (sessionStorage.getItem('authenticated') === 'true') {
+            window.location.href = '@Url.Action("Dashboard", "Home")';
+        }
+    </script>
+</body>
+</html>

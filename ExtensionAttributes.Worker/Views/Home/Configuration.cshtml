@@ -1,0 +1,261 @@
+@using ExtensionAttributes.Automation.WorkerSvc.Config
+@model dynamic
+
+@{
+    ViewData["Title"] = "Configuration Summary";
+    var appSettings = ViewBag.AppSettings as AppSettings;
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-cog me-2"></i>
+                        Configuration Summary
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        This page displays the current configuration of the Extension Attributes Automation service.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (appSettings != null)
+    {
+        <!-- Data Sources Configuration -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-database me-2"></i>Data Sources</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="mb-3">
+                                    <i class="fas fa-server me-2"></i>Active Directory
+                                    @if (appSettings.DataSources.EnableActiveDirectory)
+                                    {
+                                        <span class="badge bg-success">Enabled</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Disabled</span>
+                                    }
+                                </h6>
+                                <p class="text-muted small">
+                                    On-premises Active Directory integration for device and attribute management.
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="mb-3">
+                                    <i class="fas fa-cloud me-2"></i>Microsoft Intune
+                                    @if (appSettings.DataSources.EnableIntune)
+                                    {
+                                        <span class="badge bg-success">Enabled</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Disabled</span>
+                                    }
+                                </h6>
+                                <p class="text-muted small">
+                                    Cloud-based device management through Microsoft Intune and Graph API.
+                                </p>
+                            </div>
+                        </div>
+                        <hr />
+                        <div class="row">
+                            <div class="col-md-12">
+                                <strong>Preferred Data Source:</strong>
+                                <span class="badge bg-info ms-2">@appSettings.DataSources.PreferredDataSource</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Extension Attribute Mappings -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-link me-2"></i>
+                            Extension Attribute Mappings
+                            <span class="badge bg-light text-dark ms-2">@(appSettings.ExtensionAttributeMappings?.Count ?? 0) mappings</span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (appSettings.ExtensionAttributeMappings != null && appSettings.ExtensionAttributeMappings.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Extension Attribute</th>
+                                            <th>Source Attribute</th>
+                                            <th>Data Source</th>
+                                            <th>Regex Pattern</th>
+                                            <th>Default Value</th>
+                                            <th>Hardware Info</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var mapping in appSettings.ExtensionAttributeMappings)
+                                        {
+                                            <tr>
+                                                <td><code class="text-primary">@mapping.ExtensionAttribute</code></td>
+                                                <td><code>@mapping.SourceAttribute</code></td>
+                                                <td>
+                                                    <span class="badge @(mapping.DataSource.ToString() == "ActiveDirectory" ? "bg-primary" : "bg-success")">
+                                                        @mapping.DataSource
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    @if (!string.IsNullOrEmpty(mapping.Regex))
+                                                    {
+                                                        <code class="text-info small">@mapping.Regex</code>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">-</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (!string.IsNullOrEmpty(mapping.DefaultValue))
+                                                    {
+                                                        <code>@mapping.DefaultValue</code>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">-</span>
+                                                    }
+                                                </td>
+                                                <td class="text-center">
+                                                    @if (mapping.UseHardwareInfo)
+                                                    {
+                                                        <i class="fas fa-check text-success"></i>
+                                                    }
+                                                    else
+                                                    {
+                                                        <i class="fas fa-times text-muted"></i>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                No extension attribute mappings configured.
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export and Logging Configuration -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0"><i class="fas fa-file-export me-2"></i>Export Settings</h5>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">Export Path:</dt>
+                            <dd class="col-sm-8"><code>@appSettings.ExportPath</code></dd>
+                            
+                            <dt class="col-sm-4">Max Age (Days):</dt>
+                            <dd class="col-sm-8">@appSettings.MaxExportAgeInDays</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-clipboard-list me-2"></i>Audit Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-5">Enable Auditing:</dt>
+                            <dd class="col-sm-7">
+                                @if (appSettings.Audit.Enabled)
+                                {
+                                    <span class="badge bg-success">Enabled</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Disabled</span>
+                                }
+                            </dd>
+                            
+                            <dt class="col-sm-5">Log to File:</dt>
+                            <dd class="col-sm-7">
+                                @if (appSettings.Audit.LogToFile)
+                                {
+                                    <i class="fas fa-check text-success"></i>
+                                }
+                                else
+                                {
+                                    <i class="fas fa-times text-muted"></i>
+                                }
+                            </dd>
+                            
+                            <dt class="col-sm-5">Retention (Days):</dt>
+                            <dd class="col-sm-7">@appSettings.Audit.RetentionDays</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0"><i class="fas fa-tools me-2"></i>Quick Actions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex gap-2 flex-wrap">
+                            <a href="@Url.Action("Dashboard", "Home")" class="btn btn-primary">
+                                <i class="fas fa-tachometer-alt me-2"></i>View Dashboard
+                            </a>
+                            <a href="/health" class="btn btn-success" target="_blank">
+                                <i class="fas fa-heartbeat me-2"></i>Health Check
+                            </a>
+                            <a href="/api/status/info" class="btn btn-info" target="_blank">
+                                <i class="fas fa-info me-2"></i>System Info API
+                            </a>
+                            <a href="/audit.html" class="btn btn-warning">
+                                <i class="fas fa-history me-2"></i>Audit Logs
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Unable to load configuration. Please check your appsettings.json file.
+        </div>
+    }
+</div>

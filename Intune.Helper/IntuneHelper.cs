@@ -12,8 +12,8 @@ namespace Azure.Automation.Intune
 {
     public class IntuneHelper : IIntuneHelper
     {
-        private readonly ILogger<IIntuneHelper> _logger;
-        private readonly ILogger _cmtraceLogger; // CMTrace-optimized logger
+        private readonly Microsoft.Extensions.Logging.ILogger<IIntuneHelper> _logger;
+        private readonly Serilog.ILogger _cmtraceLogger; // CMTrace-optimized logger
         private readonly GraphServiceClient _graphServiceClient;
         private readonly HttpClient _httpClient;
         private readonly string _baseUrl = "https://graph.microsoft.com";
