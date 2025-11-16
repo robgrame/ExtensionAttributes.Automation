@@ -133,20 +133,71 @@ namespace Nimbus.ExtensionAttributes.EntraAD
         {
             try
             {
-                var devices = await _graphServiceClient.Devices
-                    .GetAsync(requestConfiguration =>
-                    {
-                        requestConfiguration.QueryParameters.Filter = $"displayName eq '{deviceName}'";
-                        requestConfiguration.QueryParameters.Select = _settings.AttributesToLoad ?? new[] {"id","deviceId","accountEnabled","approximateLastSignInDateTime","displayName","trustType"};
-                        requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
-                    });
-                
-                if (devices?.Value == null || devices.Value.Count == 0)
+                _logger.LogTrace("Get the Access Token");
+                var token = await _authenticationHandler.GetAccessTokenAsync();
+                _logger.LogTrace("Access Token retrieved");
+
+                _logger.LogTrace("Building the request to the Microsoft Graph API (beta)");
+                var request = new HttpRequestMessage(HttpMethod.Get, 
+                    $"https://graph.microsoft.com/beta/devices?$filter=displayName eq '{deviceName}'&$select={string.Join(",", _settings.AttributesToLoad ?? new[] {"id","deviceId","accountEnabled","approximateLastSignInDateTime","displayName","trustType"})}");
+                _logger.LogTrace("Request built");
+
+                _logger.LogTrace("Adding the access token to the request headers");
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Token);
+                request.Headers.Add("ConsistencyLevel", "eventual");
+                _logger.LogTrace("Access token added to the request headers");
+
+                _logger.LogTrace("Sending the request");
+                var response = await _httpClient.SendAsync(request);
+                _logger.LogTrace("Request sent");
+
+                _logger.LogTrace("Checking the response status code");
+                if (response.IsSuccessStatusCode)
                 {
+                    _logger.LogTrace("Response status code is success");
+                    var content = await response.Content.ReadAsStringAsync();
+                    _logger.LogTrace("Response content retrieved");
+                    _logger.LogTrace("Deserializing the response content");
+                    var result = System.Text.Json.JsonSerializer.Deserialize<Microsoft.Graph.Models.DeviceCollectionResponse>(content);
+                    _logger.LogTrace("Response content deserialized");
+
+                    if (result?.Value == null || result.Value.Count == 0)
+                    {
+                        _logger.LogWarning("No devices found with name {DeviceName}", deviceName);
+                        return null;
+                    }
+
+                    // If multiple devices found, prioritize ServerAd devices (devices synced from AD)
+                    if (result.Value.Count > 1)
+                    {
+                        _logger.LogInformation("Found {Count} devices with name {DeviceName}. Filtering by trustType.", result.Value.Count, deviceName);
+                        
+                        // First, try to find a ServerAd device (synced from AD)
+                        var serverAdDevice = result.Value.FirstOrDefault(d => 
+                            string.Equals(d.TrustType, "ServerAd", StringComparison.OrdinalIgnoreCase));
+                        
+                        if (serverAdDevice != null)
+                        {
+                            _logger.LogInformation("Selected ServerAd device for {DeviceName}: DeviceId={DeviceId}, TrustType={TrustType}", 
+                                deviceName, serverAdDevice.DeviceId, serverAdDevice.TrustType);
+                            return serverAdDevice;
+                        }
+                        
+                        // If no ServerAd device, log all devices and return the first one
+                        _logger.LogWarning("No ServerAd device found for {DeviceName}. Available devices:", deviceName);
+                        foreach (var device in result.Value)
+                        {
+                            _logger.LogWarning("  - DeviceId: {DeviceId}, TrustType: {TrustType}", device.DeviceId, device.TrustType);
+                        }
+                    }
+
+                    return result.Value.FirstOrDefault();
+                }
+                else
+                {
+                    _logger.LogError("Error retrieving device {DeviceName}. Status code: {StatusCode}", deviceName, response.StatusCode);
                     return null;
                 }
-
-                return devices.Value.FirstOrDefault();
             }
             catch (AuthenticationFailedException ex)
             {
@@ -176,7 +227,7 @@ namespace Nimbus.ExtensionAttributes.EntraAD
                 _logger.LogTrace("Access Token retrieved");
 
                 _logger.LogTrace("Building the request to the Microsoft Graph API");
-                var request = new HttpRequestMessage(HttpMethod.Get, $"https://graph.microsoft.com/v1.0/devices/{deviceId}");
+                var request = new HttpRequestMessage(HttpMethod.Get, $"https://graph.microsoft.com/beta/devices/{deviceId}");
                 _logger.LogTrace("Request built");
 
                 _logger.LogTrace("Adding the access token to the request headers");
@@ -258,7 +309,7 @@ namespace Nimbus.ExtensionAttributes.EntraAD
                 _logger.LogTrace("Access Token retrieved");
 
                 _logger.LogTrace("Building the request to the Microsoft Graph API");
-                var request = new HttpRequestMessage(HttpMethod.Get, $"https://graph.microsoft.com/v1.0/devices/{deviceId}");
+                var request = new HttpRequestMessage(HttpMethod.Get, $"https://graph.microsoft.com/beta/devices/{deviceId}");
                 _logger.LogTrace("Request built");
 
                 _logger.LogTrace("Adding the access token to the request headers");
@@ -333,7 +384,7 @@ namespace Nimbus.ExtensionAttributes.EntraAD
                 _logger.LogTrace("Access Token retrieved");
 
                 _logger.LogTrace("Building the request to the Microsoft Graph API");
-                var request = new HttpRequestMessage(HttpMethod.Patch, $"https://graph.microsoft.com/v1.0/devices/{deviceId}");
+                var request = new HttpRequestMessage(HttpMethod.Patch, $"https://graph.microsoft.com/beta/devices/{deviceId}");
                 _logger.LogTrace("Request {request} built", request.RequestUri);
 
                 _logger.LogTrace("Adding the access token to the request headers");
@@ -758,20 +809,60 @@ namespace Nimbus.ExtensionAttributes.EntraAD
 
             try
             {
-                var devices = await _graphServiceClient.Devices
-                    .GetAsync(requestConfiguration =>
-                    {
-                        requestConfiguration.QueryParameters.Filter = $"displayName eq '{computerName}'";
-                        requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
-                    })
-                    .ConfigureAwait(false);
+                _logger.LogTrace("Get the Access Token");
+                var token = await _authenticationHandler.GetAccessTokenAsync();
+                _logger.LogTrace("Access Token retrieved");
 
-                if (devices?.Value == null || devices.Value.Count == 0)
+                _logger.LogTrace("Building the request to the Microsoft Graph API (beta)");
+                var request = new HttpRequestMessage(HttpMethod.Get, 
+                    $"https://graph.microsoft.com/beta/devices?$filter=displayName eq '{computerName}'");
+                _logger.LogTrace("Request built");
+
+                _logger.LogTrace("Adding the access token to the request headers");
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Token);
+                request.Headers.Add("ConsistencyLevel", "eventual");
+                _logger.LogTrace("Access token added to the request headers");
+
+                _logger.LogTrace("Sending the request");
+                var response = await _httpClient.SendAsync(request);
+                _logger.LogTrace("Request sent");
+
+                if (!response.IsSuccessStatusCode)
                 {
+                    _logger.LogError("Error retrieving devices for {ComputerName}. Status code: {StatusCode}", computerName, response.StatusCode);
                     return Enumerable.Empty<string>();
                 }
 
-                foreach (var device in devices.Value)
+                var content = await response.Content.ReadAsStringAsync();
+                var result = System.Text.Json.JsonSerializer.Deserialize<Microsoft.Graph.Models.DeviceCollectionResponse>(content);
+
+                if (result?.Value == null || result.Value.Count == 0)
+                {
+                    _logger.LogInformation("No devices found with name {ComputerName}", computerName);
+                    return Enumerable.Empty<string>();
+                }
+
+                // If multiple devices found, prioritize ServerAd devices (devices synced from AD)
+                var devicesToProcess = result.Value;
+                if (result.Value.Count > 1)
+                {
+                    _logger.LogInformation("Found {Count} devices with name {ComputerName}. Filtering by trustType.", result.Value.Count, computerName);
+                    
+                    var serverAdDevices = result.Value.Where(d => 
+                        string.Equals(d.TrustType, "ServerAd", StringComparison.OrdinalIgnoreCase)).ToList();
+                    
+                    if (serverAdDevices.Any())
+                    {
+                        _logger.LogInformation("Found {Count} ServerAd devices for {ComputerName}", serverAdDevices.Count, computerName);
+                        devicesToProcess = serverAdDevices;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("No ServerAd device found for {ComputerName}. Processing all devices.", computerName);
+                    }
+                }
+
+                foreach (var device in devicesToProcess)
                 {
                     if (device.PhysicalIds == null || device.PhysicalIds.Count == 0)
                     {
@@ -785,7 +876,7 @@ namespace Nimbus.ExtensionAttributes.EntraAD
                         if (hwIdEntry != null)
                         {
                             string hwId = hwIdEntry.Split(':')[2];
-                            _logger.LogInformation("Device {DeviceID} has the Hardware ID {hwId}", device.Id, hwId);
+                            _logger.LogInformation("Device {DeviceID} (TrustType: {TrustType}) has the Hardware ID {hwId}", device.Id, device.TrustType, hwId);
                             hwIds.Add(hwId);
                         }
                         else
