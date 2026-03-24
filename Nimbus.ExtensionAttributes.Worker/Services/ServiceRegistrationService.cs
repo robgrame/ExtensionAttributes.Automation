@@ -76,14 +76,12 @@ namespace Nimbus.ExtensionAttributes.WorkerSvc.Services
             {
                 Credentials = CredentialCache.DefaultCredentials
             })
-            .ConfigureHttpMessageHandlerBuilder(handlerBuilder =>
+            .ConfigureAdditionalHttpMessageHandlers((handlers, provider) =>
             {
-                // Add logging for HTTP requests
-                var loggerFactory = handlerBuilder.Services.GetRequiredService<ILoggerFactory>();
+                var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
                 var logger = loggerFactory.CreateLogger("GraphAPI.HttpClient");
                 var authLogger = loggerFactory.CreateLogger<GraphApiAuthenticationHandler>();
                 
-                // Get the same TokenCredential used for GraphServiceClient
                 TokenCredential credential;
                 
                 if (entraADHelperSettings.UseClientSecret)
@@ -122,9 +120,8 @@ namespace Nimbus.ExtensionAttributes.WorkerSvc.Services
                     }
                 }
                 
-                // Add authentication handler first, then Polly policies
-                handlerBuilder.AdditionalHandlers.Add(new GraphApiAuthenticationHandler(credential, authLogger));
-                handlerBuilder.AdditionalHandlers.Add(new PolicyHandler(PollyPolicies.GetGraphApiPolicy(logger)));
+                handlers.Add(new GraphApiAuthenticationHandler(credential, authLogger));
+                handlers.Add(new PolicyHandler(PollyPolicies.GetGraphApiPolicy(logger)));
                 
                 Log.Information("Configured Graph API HttpClient with authentication and resilience policies");
             });

@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging;
+using System.Net;
+using System.Net.Mail;
 
 namespace Nimbus.ExtensionAttributes.WorkerSvc.Services
 {
@@ -27,25 +29,47 @@ namespace Nimbus.ExtensionAttributes.WorkerSvc.Services
         {
             try
             {
-                // For now, this is a placeholder implementation
-                // In a real implementation, you would integrate with:
-                // - Azure Communication Services
-                // - SendGrid
-                // - SMTP server
-                // - Microsoft Graph (for Outlook/Exchange)
-
                 var emailRecipient = recipient ?? _settings.DefaultEmailRecipient;
-                
-                _logger.LogInformation("?? EMAIL NOTIFICATION: {Subject}", subject);
-                _logger.LogInformation("To: {Recipient}", emailRecipient);
-                _logger.LogInformation("Body: {Body}", body);
 
-                // TODO: Implement actual email sending
-                // Example with System.Net.Mail:
-                // using var smtpClient = new SmtpClient(_settings.SmtpServer, _settings.SmtpPort);
-                // await smtpClient.SendMailAsync(new MailMessage(from, to, subject, body));
+                if (string.IsNullOrWhiteSpace(_settings.SmtpServer))
+                {
+                    _logger.LogWarning("SMTP server not configured, skipping email notification");
+                    return;
+                }
 
-                await Task.CompletedTask;
+                if (string.IsNullOrWhiteSpace(emailRecipient))
+                {
+                    _logger.LogWarning("No email recipient configured, skipping email notification");
+                    return;
+                }
+
+                var senderAddress = !string.IsNullOrWhiteSpace(_settings.SmtpUsername) 
+                    ? _settings.SmtpUsername 
+                    : $"noreply@{_settings.SmtpServer}";
+
+                using var mailMessage = new MailMessage(senderAddress, emailRecipient, subject, body)
+                {
+                    IsBodyHtml = body.Contains('<')
+                };
+
+                using var smtpClient = new SmtpClient(_settings.SmtpServer, _settings.SmtpPort)
+                {
+                    EnableSsl = _settings.SmtpPort != 25,
+                    DeliveryMethod = SmtpDeliveryMethod.Network,
+                    Timeout = 30000
+                };
+
+                if (!string.IsNullOrWhiteSpace(_settings.SmtpUsername) && !string.IsNullOrWhiteSpace(_settings.SmtpPassword))
+                {
+                    smtpClient.Credentials = new NetworkCredential(_settings.SmtpUsername, _settings.SmtpPassword);
+                }
+
+                await smtpClient.SendMailAsync(mailMessage);
+                _logger.LogInformation("Email notification sent to {Recipient}: {Subject}", emailRecipient, subject);
+            }
+            catch (SmtpException ex)
+            {
+                _logger.LogError(ex, "SMTP error sending email notification: {Error} (Status: {StatusCode})", ex.Message, ex.StatusCode);
             }
             catch (Exception ex)
             {
@@ -181,7 +205,7 @@ namespace Nimbus.ExtensionAttributes.WorkerSvc.Services
                     alertMessage += "\n\n**Additional Information:**\n";
                     foreach (var kvp in data)
                     {
-                        alertMessage += $"• **{kvp.Key}**: {kvp.Value}\n";
+                        alertMessage += $"ï¿½ **{kvp.Key}**: {kvp.Value}\n";
                     }
                 }
 

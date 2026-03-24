@@ -8,10 +8,11 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace Nimbus.ExtensionAttributes.EntraAD.Authentication
 {
-    public class AuthenticationHandler
+    public class AuthenticationHandler : IDisposable
     {
         private readonly EntraADHelperSettings _settings;
         private readonly ILogger<AuthenticationHandler> _logger;
+        private readonly SemaphoreSlim _tokenLock = new(1, 1);
         private AccessToken? _accessToken;
         private DateTime _tokenExpiration;
 
@@ -23,21 +24,27 @@ namespace Nimbus.ExtensionAttributes.EntraAD.Authentication
 
         public async Task<AccessToken> GetAccessTokenAsync()
         {
+            // Fast path: check cache without locking
+            if (_accessToken != null && _accessToken.Value.ExpiresOn.UtcDateTime > DateTime.UtcNow.AddMinutes(_settings.TokenExpirationBuffer))
+            {
+                _logger.LogTrace("Using cached access token.");
+                return _accessToken.Value;
+            }
+
+            await _tokenLock.WaitAsync();
             try
             {
-
-                // Check if the access token is cached and not expired within the buffer time
+                // Double-check after acquiring lock (another thread may have refreshed)
                 if (_accessToken != null && _accessToken.Value.ExpiresOn.UtcDateTime > DateTime.UtcNow.AddMinutes(_settings.TokenExpirationBuffer))
                 {
-                    _logger.LogTrace("Using cached access token.");
+                    _logger.LogTrace("Using cached access token (refreshed by another thread).");
                     return _accessToken.Value;
                 }
 
-                // Check if ClientId and TenantId are set
                 if (string.IsNullOrEmpty(_settings.ClientId) || string.IsNullOrEmpty(_settings.TenantId))
                 {
                     _logger.LogError("ClientId or TenantId is not set.");
-                    throw new Exception("ClientId or TenantId is not set.");
+                    throw new InvalidOperationException("ClientId or TenantId is not set.");
                 }
 
                 _logger.LogTrace("Fetching new access token...");
@@ -52,13 +59,13 @@ namespace Nimbus.ExtensionAttributes.EntraAD.Authentication
                     if (string.IsNullOrEmpty(_settings.CertificateThumbprint))
                     {
                         _logger.LogError("Certificate thumbprint is not set.");
-                        throw new Exception("Certificate thumbprint is not set.");
+                        throw new InvalidOperationException("Certificate thumbprint is not set.");
                     }
                     var certificate = FindCertificateByThumbprint(_settings.CertificateThumbprint);
                     if (certificate == null)
                     {
                         _logger.LogError("Certificate with thumbprint {Thumbprint} not found", _settings.CertificateThumbprint);
-                        throw new Exception("Certificate not found");
+                        throw new InvalidOperationException($"Certificate with thumbprint {_settings.CertificateThumbprint} not found.");
                     }
 
                     credential = new ClientCertificateCredential(_settings.TenantId, _settings.ClientId, certificate);
@@ -97,6 +104,15 @@ namespace Nimbus.ExtensionAttributes.EntraAD.Authentication
                 _logger.LogError(ex, "Failed to get access token.");
                 throw new InvalidOperationException("An unexpected error occurred while getting the access token.", ex);
             }
+            finally
+            {
+                _tokenLock.Release();
+            }
+        }
+
+        public void Dispose()
+        {
+            _tokenLock.Dispose();
         }
 
         private X509Certificate2? FindCertificateByThumbprint(string thumbprint)

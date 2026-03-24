@@ -74,6 +74,11 @@ namespace Nimbus.ExtensionAttributes.WorkerSvc.Services
                         }
                         break;
 
+                    case "--dry-run":
+                    case "--dryrun":
+                        options.DryRun = true;
+                        break;
+
                     default:
                         // If we're in device mode and haven't set a device name yet, treat this as the device name
                         if (options.Mode == RunMode.Device && string.IsNullOrEmpty(options.DeviceName) && !arg.StartsWith('-'))
@@ -117,6 +122,7 @@ namespace Nimbus.ExtensionAttributes.WorkerSvc.Services
             Console.WriteLine("  --web, -w, --dashboard           Run with web dashboard and REST API");
             Console.WriteLine("  --device, -d [device-name]       Process extension attributes for a specific device by name");
             Console.WriteLine("  --deviceid [device-id]           Process extension attributes for a specific device by Entra AD Device ID");
+            Console.WriteLine("  --dry-run                        Preview changes without writing to Entra AD");
             Console.WriteLine("  --help, -h                       Show this help message");
             Console.WriteLine();
             Console.WriteLine("Examples:");
@@ -139,6 +145,7 @@ namespace Nimbus.ExtensionAttributes.WorkerSvc.Services
     {
         public RunMode Mode { get; set; } = RunMode.Console;
         public bool ShowHelp { get; set; }
+        public bool DryRun { get; set; }
         public string? DeviceName { get; set; }
         public string? DeviceId { get; set; }
     }

@@ -77,7 +77,7 @@ namespace Nimbus.ExtensionAttributes.WorkerSvc.Services
         }
 
         /// <summary>
-        /// Policy specifically for Microsoft Graph API calls
+        /// Policy specifically for Microsoft Graph API calls with Retry-After header support
         /// </summary>
         public static IAsyncPolicy<HttpResponseMessage> GetGraphApiPolicy(ILogger logger)
         {
@@ -86,37 +86,44 @@ namespace Nimbus.ExtensionAttributes.WorkerSvc.Services
                 .OrResult(msg => ShouldRetryGraphCall(msg.StatusCode))
                 .WaitAndRetryAsync(
                     retryCount: 5,
-                    sleepDurationProvider: retryAttempt =>
+                    sleepDurationProvider: (retryAttempt, outcome, context) =>
                     {
-                        // Handle Graph API throttling with exponential backoff
+                        // Honour Retry-After header from Graph API throttling responses
+                        if (outcome.Result?.StatusCode == HttpStatusCode.TooManyRequests)
+                        {
+                            var retryAfter = outcome.Result.Headers?.RetryAfter;
+                            if (retryAfter?.Delta.HasValue == true)
+                            {
+                                return retryAfter.Delta.Value;
+                            }
+                            if (retryAfter?.Date.HasValue == true)
+                            {
+                                var delay = retryAfter.Date.Value - DateTimeOffset.UtcNow;
+                                if (delay > TimeSpan.Zero)
+                                    return delay;
+                            }
+                        }
+
+                        // Exponential backoff with jitter
                         var baseDelay = TimeSpan.FromSeconds(Math.Pow(2, retryAttempt));
                         var jitter = TimeSpan.FromMilliseconds(Random.Shared.Next(0, 1000));
                         return baseDelay.Add(jitter);
                     },
-                    onRetry: (outcome, timespan, retryCount, context) =>
+                    onRetryAsync: (outcome, timespan, retryCount, context) =>
                     {
                         var statusCode = outcome.Result?.StatusCode ?? HttpStatusCode.InternalServerError;
                         
                         if (statusCode == HttpStatusCode.TooManyRequests)
                         {
-                            // Check for Retry-After header
-                            var retryAfter = outcome.Result?.Headers?.RetryAfter?.Delta;
-                            if (retryAfter.HasValue)
-                            {
-                                logger.LogWarning("Graph API throttled. Retry {RetryCount}/5 after {RetryAfter}s (Retry-After header)",
-                                    retryCount, retryAfter.Value.TotalSeconds);
-                            }
-                            else
-                            {
-                                logger.LogWarning("Graph API throttled. Retry {RetryCount}/5 after {Delay}s",
-                                    retryCount, timespan.TotalSeconds);
-                            }
+                            logger.LogWarning("Graph API throttled (429). Retry {RetryCount}/5 after {Delay}s",
+                                retryCount, timespan.TotalSeconds);
                         }
                         else
                         {
                             logger.LogWarning("Graph API request retry {RetryCount}/5 after {Delay}s. Status: {StatusCode}",
                                 retryCount, timespan.TotalSeconds, statusCode);
                         }
+                        return Task.CompletedTask;
                     });
         }
 

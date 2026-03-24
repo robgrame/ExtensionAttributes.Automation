@@ -99,6 +99,7 @@ namespace Nimbus.ExtensionAttributes.WorkerSvc.JobUtils
             }
         }
 
+        [SupportedOSPlatform("windows")]
         private static async Task ProcessADMapping(
             System.DirectoryServices.DirectoryEntry directoryEntry,
             Microsoft.Graph.Models.Device entraDevice,

@@ -7,6 +7,7 @@ using Nimbus.ExtensionAttributes.AD;
 using Nimbus.ExtensionAttributes.Intune;
 using Microsoft.Graph.Models;
 using System.Diagnostics;
+using System.Runtime.Versioning;
 using CsvHelper;
 using CsvHelper.Configuration;
 using System.Globalization;
@@ -597,6 +598,7 @@ namespace Nimbus.ExtensionAttributes.WorkerSvc.JobUtils
             }
         }
 
+        [SupportedOSPlatform("windows")]
         private async Task<string?> GetActiveDirectoryValueAsync(string deviceName, ExtensionAttributeMapping mapping)
         {
             try

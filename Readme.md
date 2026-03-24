@@ -2,7 +2,7 @@
 
 A complete and highly resilient solution for automating Microsoft Entra AD (Azure AD) Extension Attributes management based on information from Active Directory and/or Microsoft Intune.
 
-[![.NET](https://img.shields.io/badge/.NET-9.0-blue.svg)](https://dotnet.microsoft.com/download)
+[![.NET](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
 [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Health Checks](https://img.shields.io/badge/Health%20Checks-✅-brightgreen.svg)]()
 [![Retry Logic](https://img.shields.io/badge/Polly%20Resilience-✅-brightgreen.svg)]()
@@ -26,6 +26,7 @@ A complete and highly resilient solution for automating Microsoft Entra AD (Azur
 - [Troubleshooting](#troubleshooting)
 - [Testing and Debug](#testing-and-debug)
 - [Contributing](#contributing)
+- [Documentation](#documentation)
 - [License](#license)
 
 ## 🔍 Overview
@@ -146,7 +147,7 @@ The solution supports regular expressions for extracting specific values, defaul
 
 ### Prerequisites
 
-- **.NET 9.0** Runtime/SDK
+- **.NET 10.0** Runtime/SDK (LTS — supported until November 2028)
 - **Windows Server 2019** or higher (for AD integration)
 - **Active Directory access** (if used)
 - **Microsoft Graph API permissions** for Entra AD and Intune
@@ -156,7 +157,7 @@ The solution supports regular expressions for extracting specific values, defaul
 
 1. **Clone the repository:**
 ```bash
-git clone https://github.com/yourusername/ExtensionAttributes.Automation.git
+git clone https://github.com/robgrame/ExtensionAttributes.Automation.git
 cd ExtensionAttributes.Automation
 ```
 
@@ -167,8 +168,8 @@ dotnet build --configuration Release
 
 3. **Install as Windows Service:**
 ```cmd
-cd ExtensionAttributes.Worker\bin\Release\net9.0
-ExtensionAttributes.WorkerSvc.exe --service
+cd Nimbus.ExtensionAttributes.Worker\bin\Release\net10.0-windows
+Nimbus.ExtensionAttributes.WorkerSvc.exe --service
 ```
 
 ## ⚙️ Configuration
@@ -192,4 +193,70 @@ The `appsettings.json` file contains all necessary configurations:
         "extensionAttribute": "extensionAttribute1",
         "sourceAttribute": "distinguishedName",
         "dataSource": "ActiveDirectory",
-        "regex": "(?<=OU=)(?
+        "regex": "(?<=OU=)(?<value>[^,]+)(?=,OU=(?i:Locations))",
+        "defaultValue": "Unknown Department"
+      },
+      {
+        "extensionAttribute": "extensionAttribute5",
+        "sourceAttribute": "manufacturer",
+        "dataSource": "Intune",
+        "useHardwareInfo": true,
+        "defaultValue": "Unknown"
+      }
+    ]
+  },
+  "EntraADHelperSettings": {
+    "TenantId": "<your-tenant-id>",
+    "ClientId": "<your-client-id>",
+    "UseClientSecret": false,
+    "CertificateThumbprint": "<your-cert-thumbprint>",
+    "PageSize": 1000
+  },
+  "ADHelperSettings": {
+    "RootOrganizationalUnitDN": "OU=Computers,DC=contoso,DC=com",
+    "PageSize": 1000
+  }
+}
+```
+
+## 🧪 Testing and Debug
+
+```bash
+# Run all tests
+dotnet test
+
+# Run in console mode with dry-run
+dotnet run --project Nimbus.ExtensionAttributes.Worker -- --dry-run
+
+# Process a specific device
+dotnet run --project Nimbus.ExtensionAttributes.Worker -- --device "WORKSTATION01"
+
+# Run the web dashboard
+dotnet run --project Nimbus.ExtensionAttributes.Worker -- --webapp
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📚 Documentation
+
+Detailed guides are available in the [`docs/`](docs/) folder:
+
+| Guide | Description |
+|-------|-------------|
+| [Authentication Setup](docs/AUTHENTICATION_SETUP_COMPLETE.md) | Azure AD app registration, certificate and client secret configuration |
+| [CMTrace Logging Guide](docs/CMTRACE_LOGGING_GUIDE.md) | SCCM/CMTrace-compatible logging configuration and usage |
+| [Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md) | Technical overview of the architecture and implementation details |
+| [Service Web Integration](docs/SERVICE_WEB_INTEGRATION_GUIDE.md) | REST API endpoints, SignalR integration, and service hooks |
+| [Web Interface Guide](docs/WEB_INTERFACE_GUIDE.md) | Web dashboard setup, features, and usage instructions |
+
+## 📄 License
+
+This project is licensed under the **GNU General Public License v3.0** — see the [LICENSE.txt](LICENSE.txt) file for details.

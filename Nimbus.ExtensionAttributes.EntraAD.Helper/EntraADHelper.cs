@@ -24,6 +24,16 @@ namespace Nimbus.ExtensionAttributes.EntraAD
         private readonly HttpClient _httpClient;
         private readonly AuthenticationHandler _authenticationHandler;
 
+        // Whitelist of valid extension attribute property names
+        private static readonly HashSet<string> ValidExtensionAttributes = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "ExtensionAttribute1", "ExtensionAttribute2", "ExtensionAttribute3",
+            "ExtensionAttribute4", "ExtensionAttribute5", "ExtensionAttribute6",
+            "ExtensionAttribute7", "ExtensionAttribute8", "ExtensionAttribute9",
+            "ExtensionAttribute10", "ExtensionAttribute11", "ExtensionAttribute12",
+            "ExtensionAttribute13", "ExtensionAttribute14", "ExtensionAttribute15"
+        };
+
         public EntraADHelper(ILogger<IEntraADHelper> logger, IHttpClientFactory httpClientFactory,IOptions<EntraADHelperSettings> settings,GraphServiceClient graphServiceClient, AuthenticationHandler authenticationHandler)
         {
             _graphServiceClient = graphServiceClient;
@@ -31,6 +41,29 @@ namespace Nimbus.ExtensionAttributes.EntraAD
             _settings = settings.Value;
             _logger = logger;
             _authenticationHandler = authenticationHandler;
+        }
+
+        /// <summary>
+        /// Normalizes extension attribute name to proper casing (e.g. "extensionattribute1" → "extensionAttribute1")
+        /// and validates it against the whitelist.
+        /// </summary>
+        private string NormalizeExtensionAttributeName(string extensionAttribute)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(extensionAttribute);
+
+            // Find matching attribute from whitelist (case-insensitive)
+            var match = ValidExtensionAttributes.FirstOrDefault(a => 
+                string.Equals(a, extensionAttribute, StringComparison.OrdinalIgnoreCase));
+
+            if (match == null)
+            {
+                throw new ArgumentException(
+                    $"Invalid extension attribute name: '{extensionAttribute}'. Must be extensionAttribute1 through extensionAttribute15.",
+                    nameof(extensionAttribute));
+            }
+
+            // Return with correct casing for Graph API: "extensionAttribute1" (lowercase 'e', uppercase 'A')
+            return char.ToLowerInvariant(match[0]) + match[1..];
         }
 
 
@@ -110,7 +143,7 @@ namespace Nimbus.ExtensionAttributes.EntraAD
             }
             catch (ServiceException ex)
             {
-                Console.WriteLine($"An error occurred: {ex.Message}");
+                _logger.LogError(ex, "An error occurred retrieving user {UserId}", userId);
                 return null;
             }
         }
@@ -124,7 +157,7 @@ namespace Nimbus.ExtensionAttributes.EntraAD
             }
             catch (ServiceException ex)
             {
-                Console.WriteLine($"An error occurred retrieving Device directory object: {ex.Message}");
+                _logger.LogError(ex, "An error occurred retrieving Device directory object for {DeviceId}", deviceId);
                 return null;
             }
         }
@@ -139,7 +172,7 @@ namespace Nimbus.ExtensionAttributes.EntraAD
 
                 _logger.LogTrace("Building the request to the Microsoft Graph API (beta)");
                 var request = new HttpRequestMessage(HttpMethod.Get, 
-                    $"https://graph.microsoft.com/beta/devices?$filter=displayName eq '{deviceName}'&$select={string.Join(",", _settings.AttributesToLoad ?? new[] {"id","deviceId","accountEnabled","approximateLastSignInDateTime","displayName","trustType"})}");
+                    $"https://graph.microsoft.com/beta/devices?$filter=displayName eq '{Uri.EscapeDataString(deviceName)}'&$select={string.Join(",", _settings.AttributesToLoad ?? new[] {"id","deviceId","accountEnabled","approximateLastSignInDateTime","displayName","trustType"})}");
                 _logger.LogTrace("Request built");
 
                 _logger.LogTrace("Adding the access token to the request headers");
@@ -215,9 +248,7 @@ namespace Nimbus.ExtensionAttributes.EntraAD
         {
             _logger.LogTrace("GetExtensionAttribute Called");
 
-            string lowerCasedExtensionAttribute = extensionAttribute.ToLowerInvariant();
-            string correctCasingAttribute = char.ToUpperInvariant(lowerCasedExtensionAttribute[0]) + lowerCasedExtensionAttribute.Substring(1);
-            correctCasingAttribute = correctCasingAttribute.Substring(0, 9) + char.ToUpperInvariant(extensionAttribute[9]) + extensionAttribute.Substring(10);
+            string correctCasingAttribute = NormalizeExtensionAttributeName(extensionAttribute);
             _logger.LogTrace("Extension attribute name {extensionAttribute} converted to {correctCasingAttribute}", extensionAttribute, correctCasingAttribute);
 
             try
@@ -255,7 +286,10 @@ namespace Nimbus.ExtensionAttributes.EntraAD
                         _logger.LogError("Extension attributes are null for device {DeviceId}", deviceId);
                         return null;
                     }
-                    var extensionAttributeValue = device.ExtensionAttributes.GetType().GetProperty(correctCasingAttribute)?.GetValue(device.ExtensionAttributes, null);
+
+                    // Use PascalCase for reflection on the model property
+                    var pascalCaseAttr = char.ToUpperInvariant(correctCasingAttribute[0]) + correctCasingAttribute[1..];
+                    var extensionAttributeValue = device.ExtensionAttributes.GetType().GetProperty(pascalCaseAttr)?.GetValue(device.ExtensionAttributes, null);
                     if (extensionAttributeValue == null)
                     {
                         _logger.LogWarning("Extension attribute {ExtensionAttribute} is null for device {DeviceId}", extensionAttribute, deviceId);
@@ -295,9 +329,7 @@ namespace Nimbus.ExtensionAttributes.EntraAD
 
             foreach (string extensionAttribute in extensionAttributes)
             {
-                string lowerCasedExtensionAttribute = extensionAttribute.ToLowerInvariant();
-                string correctCasingAttribute = char.ToUpperInvariant(lowerCasedExtensionAttribute[0]) + lowerCasedExtensionAttribute.Substring(1);
-                correctCasingAttribute = correctCasingAttribute.Substring(0, 9) + char.ToUpperInvariant(extensionAttribute[9]) + extensionAttribute.Substring(10);
+                string correctCasingAttribute = NormalizeExtensionAttributeName(extensionAttribute);
                 _logger.LogTrace("Extension attribute name {extensionAttribute} converted to {correctCasingAttribute}", extensionAttribute, correctCasingAttribute);
                 correctCasingAttributes.Add(correctCasingAttribute);
             }
@@ -339,7 +371,8 @@ namespace Nimbus.ExtensionAttributes.EntraAD
                     }
 
                     var extensionAttributeValuesList = device.ExtensionAttributes.GetType().GetProperties()
-                        .Where(p => correctCasingAttributes.Contains(p.Name))
+                        .Where(p => correctCasingAttributes.Any(ca => 
+                            string.Equals(char.ToUpperInvariant(ca[0]) + ca[1..], p.Name, StringComparison.Ordinal)))
                         .Select(p => p.GetValue(device.ExtensionAttributes, null)?.ToString())
                         .ToList();
 
@@ -374,7 +407,7 @@ namespace Nimbus.ExtensionAttributes.EntraAD
             _logger.LogTrace("SetExtensionAttributeValue Called");
 
             var lowerCasedExtensionAttribute = extensionAttributeName.ToLowerInvariant();
-            var correctCasingAttribute = lowerCasedExtensionAttribute.Substring(0, 9) + char.ToUpperInvariant(extensionAttributeName[9]) + extensionAttributeName.Substring(10);
+            var correctCasingAttribute = NormalizeExtensionAttributeName(extensionAttributeName);
             _logger.LogTrace("Correct casing for extension attribute {extensionAttribute} is {correctCasingAttribute}", extensionAttributeName, correctCasingAttribute);
 
             try
@@ -393,7 +426,14 @@ namespace Nimbus.ExtensionAttributes.EntraAD
                 _logger.LogTrace("Access token added to the request headers");
 
                 _logger.LogTrace("Adding the request body");
-                request.Content = new StringContent($"{{\"extensionAttributes\":{{\"{extensionAttributeName}\":\"{extensionAttributeValue}\"}}}}", System.Text.Encoding.UTF8, "application/json");
+                var jsonBody = new System.Text.Json.Nodes.JsonObject
+                {
+                    ["extensionAttributes"] = new System.Text.Json.Nodes.JsonObject
+                    {
+                        [extensionAttributeName] = extensionAttributeValue
+                    }
+                };
+                request.Content = new StringContent(jsonBody.ToJsonString(), System.Text.Encoding.UTF8, "application/json");
                 _logger.LogTrace("Request body added");
 
                 _logger.LogTrace("Sending the request");
@@ -815,7 +855,7 @@ namespace Nimbus.ExtensionAttributes.EntraAD
 
                 _logger.LogTrace("Building the request to the Microsoft Graph API (beta)");
                 var request = new HttpRequestMessage(HttpMethod.Get, 
-                    $"https://graph.microsoft.com/beta/devices?$filter=displayName eq '{computerName}'");
+                    $"https://graph.microsoft.com/beta/devices?$filter=displayName eq '{Uri.EscapeDataString(computerName)}'");
                 _logger.LogTrace("Request built");
 
                 _logger.LogTrace("Adding the access token to the request headers");

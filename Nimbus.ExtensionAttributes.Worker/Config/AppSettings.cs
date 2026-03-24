@@ -9,6 +9,11 @@
         
         // New property to enable/disable different data sources
         public DataSourceSettings DataSources { get; set; } = new DataSourceSettings();
+
+        /// <summary>
+        /// When true, shows planned changes without writing to Entra AD
+        /// </summary>
+        public bool DryRun { get; set; } = false;
     }
 
     public class DataSourceSettings

@@ -1,9 +1,11 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Nimbus.ExtensionAttributes.AD;
+using System.Runtime.Versioning;
 
 namespace Nimbus.ExtensionAttributes.WorkerSvc.HealthChecks
 {
+    [SupportedOSPlatform("windows")]
     public class ActiveDirectoryHealthCheck : IHealthCheck
     {
         private readonly ILogger<ActiveDirectoryHealthCheck> _logger;

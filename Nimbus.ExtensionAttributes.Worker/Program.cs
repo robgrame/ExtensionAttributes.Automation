@@ -66,6 +66,13 @@ namespace Nimbus.ExtensionAttributes.WorkerSvc
                 Log.Debug("Configuration validation successful");
                 configValidationService.LogConfigurationValues(builder.Configuration);
 
+                // Apply --dry-run flag to configuration
+                if (options.DryRun)
+                {
+                    builder.Configuration["AppSettings:DryRun"] = "true";
+                    Log.Information("DRY-RUN MODE: Changes will be previewed but NOT written to Entra AD");
+                }
+
                 // Register services
                 ServiceRegistrationService.RegisterServices(builder);
 

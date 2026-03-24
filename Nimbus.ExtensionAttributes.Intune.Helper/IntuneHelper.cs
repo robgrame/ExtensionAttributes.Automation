@@ -32,6 +32,14 @@ namespace Nimbus.ExtensionAttributes.Intune
             _logger.LogInformation("IntuneHelper initialized with authenticated REST API support.");
         }
 
+        /// <summary>
+        /// Escapes single quotes in OData filter values to prevent filter injection
+        /// </summary>
+        private static string EscapeODataFilterValue(string value)
+        {
+            return value.Replace("'", "''");
+        }
+
         #region Basic Device Information
         public async Task<ManagedDeviceCollectionResponse> GetIntuneDevices()
         {
@@ -93,7 +101,7 @@ namespace Nimbus.ExtensionAttributes.Intune
                 _logger.LogDebug("Getting device details for device name: {DeviceName}", deviceName);
                 var devices = await _graphServiceClient.DeviceManagement.ManagedDevices.GetAsync(requestConfiguration =>
                 {
-                    requestConfiguration.QueryParameters.Filter = $"deviceName eq '{deviceName}'";
+                    requestConfiguration.QueryParameters.Filter = $"deviceName eq '{EscapeODataFilterValue(deviceName)}'";
                 });
 
                 return devices?.Value?.FirstOrDefault();
@@ -112,7 +120,7 @@ namespace Nimbus.ExtensionAttributes.Intune
                 _logger.LogDebug("Getting device details for Entra device ID: {EntraDeviceId}", entraDeviceId);
                 var devices = await _graphServiceClient.DeviceManagement.ManagedDevices.GetAsync(requestConfiguration =>
                 {
-                    requestConfiguration.QueryParameters.Filter = $"azureADDeviceId eq '{entraDeviceId}'";
+                    requestConfiguration.QueryParameters.Filter = $"azureADDeviceId eq '{EscapeODataFilterValue(entraDeviceId)}'";
                 });
 
                 return devices?.Value?.FirstOrDefault();
@@ -360,7 +368,7 @@ namespace Nimbus.ExtensionAttributes.Intune
                 _logger.LogDebug("Finding device by serial number: {SerialNumber}", serialNumber);
                 var devices = await _graphServiceClient.DeviceManagement.ManagedDevices.GetAsync(requestConfiguration =>
                 {
-                    requestConfiguration.QueryParameters.Filter = $"serialNumber eq '{serialNumber}'";
+                    requestConfiguration.QueryParameters.Filter = $"serialNumber eq '{EscapeODataFilterValue(serialNumber)}'";
                 });
 
                 return devices?.Value?.FirstOrDefault();
@@ -379,7 +387,7 @@ namespace Nimbus.ExtensionAttributes.Intune
                 _logger.LogDebug("Finding devices by user: {UserPrincipalName}", userPrincipalName);
                 var devices = await _graphServiceClient.DeviceManagement.ManagedDevices.GetAsync(requestConfiguration =>
                 {
-                    requestConfiguration.QueryParameters.Filter = $"userPrincipalName eq '{userPrincipalName}'";
+                    requestConfiguration.QueryParameters.Filter = $"userPrincipalName eq '{EscapeODataFilterValue(userPrincipalName)}'";
                 });
 
                 return devices?.Value ?? new List<ManagedDevice>();
