@@ -251,6 +251,7 @@ Detailed guides are available in the [`docs/`](docs/) folder:
 
 | Guide | Description |
 |-------|-------------|
+| [Architecture Diagram](docs/architecture.md) | Mermaid diagram of the complete solution architecture |
 | [Authentication Setup](docs/AUTHENTICATION_SETUP_COMPLETE.md) | Azure AD app registration, certificate and client secret configuration |
 | [CMTrace Logging Guide](docs/CMTRACE_LOGGING_GUIDE.md) | SCCM/CMTrace-compatible logging configuration and usage |
 | [Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md) | Technical overview of the architecture and implementation details |
